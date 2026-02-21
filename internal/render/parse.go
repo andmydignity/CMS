@@ -1,22 +1,35 @@
 package render
 
 import (
+	"bytes"
+	"fmt"
+
+	"github.com/adrg/frontmatter"
 	"github.com/gomarkdown/markdown"
 	"github.com/gomarkdown/markdown/html"
 	"github.com/gomarkdown/markdown/parser"
 )
 
-var (
-	extensions = parser.CommonExtensions | parser.AutoHeadingIDs | parser.Footnotes | parser.SuperSubscript | parser.NoEmptyLineBeforeBlock | parser.DefinitionLists
-	p          = parser.NewWithExtensions(extensions)
-)
+var extensions = parser.CommonExtensions | parser.AutoHeadingIDs | parser.Footnotes | parser.SuperSubscript | parser.NoEmptyLineBeforeBlock | parser.DefinitionLists
+
+type meta struct {
+	layout   string `yaml:"layout"`
+	title    string `yaml:"layout"`
+	category string `yaml:"category"`
+}
 
 func MdToHTML(loadFrom string) ([]byte, error) {
 	md, err := loadFromFile(loadFrom)
 	if err != nil {
 		return nil, err
 	}
-	doc := p.Parse(md)
+	m := meta{}
+	body, err := frontmatter.Parse(bytes.NewReader(md), &m)
+	if err != nil {
+		return nil, err
+	}
+	p := parser.NewWithExtensions(extensions)
+	doc := p.Parse(body)
 	htmlFlags := html.CommonFlags | html.HrefTargetBlank | html.LazyLoadImages | html.TOC | html.FootnoteReturnLinks
 	opts := html.RendererOptions{Flags: htmlFlags}
 	renderer := html.NewRenderer(opts)
@@ -28,5 +41,5 @@ func SaveMdtoHTML(loadFrom, saveTo string) error {
 	if err != nil {
 		return err
 	}
-	return saveToFile(page, saveTo)
+	return saveToFile(page, fmt.Sprintf("%v.html", saveTo))
 }

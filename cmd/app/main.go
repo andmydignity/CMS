@@ -10,7 +10,10 @@ import (
 )
 
 func main() {
-	cmsConfig := server.CmsConfig{}
+	cmsConfig := server.CmsConfig{8080, struct {
+		Rps   float64
+		Burst int
+	}{10, 20}, true, "", "", "mdFiles", 5}
 	cms := server.CmsStruct{slog.New(slog.NewTextHandler(os.Stdout, nil)), &cmsConfig}
 	err := cms.Start()
 	if !errors.Is(err, http.ErrServerClosed) && err != nil {

@@ -10,6 +10,8 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"cms/internal/content"
 )
 
 type CmsConfig struct {
@@ -18,10 +20,11 @@ type CmsConfig struct {
 		Rps   float64
 		Burst int
 	}
-	HttpsOn  bool
-	CertFile string
-	KeyFile  string
-	MDDir    string
+	HttpsOn      bool
+	CertFile     string
+	KeyFile      string
+	MDDir        string
+	SyncInterval int
 }
 
 type CmsStruct struct {
@@ -31,7 +34,7 @@ type CmsStruct struct {
 
 func (cms *CmsStruct) Start() error {
 	srv := &http.Server{
-		Addr:         fmt.Sprint(":%d", cms.Config.Port),
+		Addr:         fmt.Sprintf(":%d", cms.Config.Port),
 		Handler:      cms.routes(),
 		IdleTimeout:  time.Minute,
 		ReadTimeout:  5 * time.Second,
@@ -48,6 +51,16 @@ func (cms *CmsStruct) Start() error {
 		defer cancel()
 		shutdownErr <- srv.Shutdown(ctx)
 	}()
+	go func() {
+		for {
+			err := content.Sync(cms.Config.MDDir)
+			if err != nil {
+				cms.Logger.Error("Error while syncing MD and HTML.", "error", err.Error())
+			}
+			time.Sleep(time.Duration(cms.Config.SyncInterval) * time.Second)
+
+		}
+	}()
 	cms.Logger.Info(fmt.Sprintf("Starting server at port %d", cms.Config.Port))
 	if cms.Config.HttpsOn {
 		if cms.Config.KeyFile == "" || cms.Config.CertFile == "" {
@@ -57,8 +70,8 @@ func (cms *CmsStruct) Start() error {
 				cms.Logger.Error("Error whilst generating self-signed certs", "error", err.Error())
 				os.Exit(2)
 			}
-			cms.Config.KeyFile = "certs/selfsigned.pem"
-			cms.Config.CertFile = "certs/selfsigned-key.pem"
+			cms.Config.CertFile = "certs/selfsigned.pem"
+			cms.Config.KeyFile = "certs/selfsigned-key.pem"
 		} else {
 			_, doesKeyexist := os.Stat(cms.Config.KeyFile)
 			_, doesCertExist := os.Stat(cms.Config.CertFile)
@@ -69,8 +82,8 @@ func (cms *CmsStruct) Start() error {
 					cms.Logger.Error("Error whilst generating self-signed certs", "error", err.Error())
 					os.Exit(2)
 				}
-				cms.Config.KeyFile = "certs/selfsigned.pem"
-				cms.Config.CertFile = "certs/selfsigned-key.pem"
+				cms.Config.CertFile = "certs/selfsigned.pem"
+				cms.Config.KeyFile = "certs/selfsigned-key.pem"
 
 			}
 		}
