@@ -3,6 +3,7 @@ package render
 import (
 	"bytes"
 	"fmt"
+	"strings"
 
 	"github.com/adrg/frontmatter"
 	"github.com/gomarkdown/markdown"
@@ -41,5 +42,8 @@ func SaveMdtoHTML(loadFrom, saveTo string) error {
 	if err != nil {
 		return err
 	}
-	return saveToFile(page, fmt.Sprintf("%v.html", saveTo))
+	if _, found := strings.CutSuffix(saveTo, ".html"); !found {
+		return saveToFile(page, fmt.Sprintf("%v.html", saveTo))
+	}
+	return saveToFile(page, saveTo)
 }
