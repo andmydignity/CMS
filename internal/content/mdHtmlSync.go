@@ -61,7 +61,7 @@ func FirstSync(mdDir string, db *sql.DB) error {
 		}
 		fullpaths = append(fullpaths, fullpath)
 	}
-	err = purgeNonExistent(db, fullpaths)
+	err = purgeNonExistent(db, fullpaths, mdDir)
 	if err != nil {
 		return err
 	}
@@ -89,43 +89,45 @@ func Sync(ctx context.Context, db *sql.DB, mdDir string, logger *slog.Logger) er
 				}
 			}
 			if idx == -1 {
-				logger.Error("Error in the relativezation of the absolute path", "error", err.Error())
+				// relativezation,damn...
+				logger.Error("Error in the relativinization of the absolute path", "error", err.Error())
 			}
 			path = filepath.Join(parts[idx:]...)
 
 			if !strings.Contains(path, ".md") {
-				files := []string{}
-				err := filepath.WalkDir(mdDir, func(path string, d os.DirEntry, err error) error {
-					if err != nil {
-						return err
-					}
-					if d.IsDir() {
-						return nil
-					}
-					rel, err := filepath.Rel(mdDir, path)
-					if err != nil {
-						return err
-					}
-					files = append(files, rel)
-					return nil
-				})
-				if err != nil {
-					logger.Error("Couldn't get all files in md dir.", "error", err.Error())
-				}
-				err = purgeNonExistent(db, files)
-				if err != nil {
-					logger.Info("It wasn't a folder")
-				}
-				extensionSanitized, _ := strings.CutPrefix(path, mdDir)
-				err = deleteHTML(filepath.Join("assets", "pages", extensionSanitized+".html"))
-				if err != nil {
-					logger.Info("Wasn't a dir", "error", err.Error())
-				}
+				// files := []string{}
+				// err := filepath.WalkDir(mdDir, func(path string, d os.DirEntry, err error) error {
+				// 	if err != nil {
+				// 		return err
+				// 	}
+				// 	if d.IsDir() {
+				// 		return nil
+				// 	}
+				// 	rel, err := filepath.Rel(mdDir, path)
+				// 	if err != nil {
+				// 		return err
+				// 	}
+				// 	files = append(files, rel)
+				// 	return nil
+				// })
+				// if err != nil {
+				// 	logger.Error("Couldn't get all files in md dir.", "error", err.Error())
+				// }
+				// err = purgeNonExistent(db, files, mdDir)
+				// if err != nil {
+				// 	logger.Info("It wasn't a folder", "error", err.Error())
+				// }
+				// extensionSanitized, _ := strings.CutPrefix(path, mdDir)
+				// err = deleteHTML(filepath.Join("assets", "pages", extensionSanitized))
+				// if err != nil {
+				// 	logger.Info("Wasn't a dir", "error", err.Error())
+				// }
+				continue
 			} else {
-				err = deleteChecksum(db, path)
-				if err != nil {
-					logger.Error("Couldn't delete checksum!", "error", err.Error())
-				}
+				//err = deleteChecksum(db, path)
+				//if err != nil {
+				//logger.Error("Couldn't delete checksum!", "error", err.Error())
+				//}
 				suffixCut, _ := strings.CutSuffix(path, ".md")
 				extensionSanitized, _ := strings.CutPrefix(suffixCut, mdDir)
 				err = deleteHTML(filepath.Join("assets", "pages", extensionSanitized+".html"))
@@ -150,38 +152,39 @@ func Sync(ctx context.Context, db *sql.DB, mdDir string, logger *slog.Logger) er
 				path = filepath.Join(parts[idx:]...)
 
 				if !strings.Contains(path, ".md") {
-					files := []string{}
-					err := filepath.WalkDir(mdDir, func(path string, d os.DirEntry, err error) error {
-						if err != nil {
-							return err
-						}
-						if d.IsDir() {
-							return nil
-						}
-						rel, err := filepath.Rel(mdDir, path)
-						if err != nil {
-							return err
-						}
-						files = append(files, rel)
-						return nil
-					})
-					if err != nil {
-						logger.Error("Couldn't get all files in md dir.", "error", err.Error())
-					}
-					err = purgeNonExistent(db, files)
-					if err != nil {
-						logger.Info("It wasn't a folder")
-					}
-					extensionSanitized, _ := strings.CutPrefix(path, mdDir)
-					err = deleteHTML(filepath.Join("assets", "pages", extensionSanitized+".html"))
-					if err != nil {
-						logger.Info("Wasn't a dir", "error", err.Error())
-					}
+					// files := []string{}
+					// err := filepath.WalkDir(mdDir, func(path string, d os.DirEntry, err error) error {
+					// 	if err != nil {
+					// 		return err
+					// 	}
+					// 	if d.IsDir() {
+					// 		return nil
+					// 	}
+					// 	rel, err := filepath.Rel(mdDir, path)
+					// 	if err != nil {
+					// 		return err
+					// 	}
+					// 	files = append(files, rel)
+					// 	return nil
+					// })
+					// if err != nil {
+					// 	logger.Error("Couldn't get all files in md dir.", "error", err.Error())
+					// }
+					// err = purgeNonExistent(db, files, mdDir)
+					// if err != nil {
+					// 	logger.Info("It wasn't a folder", "error", err.Error())
+					// }
+					// extensionSanitized, _ := strings.CutPrefix(path, mdDir)
+					// err = deleteHTML(filepath.Join("assets", "pages", extensionSanitized))
+					// if err != nil {
+					// 	logger.Info("Wasn't a dir", "error", err.Error())
+					// }
+					continue
 				} else {
-					err = deleteChecksum(db, path)
-					if err != nil {
-						logger.Error("Couldn't delete checksum!", "error", err.Error())
-					}
+					// err = deleteChecksum(db, path)
+					//if err != nil {
+					//logger.Error("Couldn't delete checksum!", "error", err.Error())
+					//}
 					suffixCut, _ := strings.CutSuffix(path, ".md")
 					extensionSanitized, _ := strings.CutPrefix(suffixCut, mdDir)
 					err = deleteHTML(filepath.Join("assets", "pages", extensionSanitized+".html"))
@@ -196,6 +199,9 @@ func Sync(ctx context.Context, db *sql.DB, mdDir string, logger *slog.Logger) er
 		}
 		if slices.Contains(types, fswatcher.EventCreate) || slices.Contains(types, fswatcher.EventMod) {
 			path := event.Path
+			if !strings.Contains(path, ".md") {
+				continue
+			}
 			path = filepath.Clean(path)
 			parts := strings.Split(path, string(filepath.Separator))
 			idx := -1

@@ -49,22 +49,22 @@ func (cms *CmsStruct) Start() error {
 	defer checksumDB.Close()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	err = content.FirstSync(cms.Config.MDDir, checksumDB)
+	if err != nil {
+		return err
+	}
 	go content.Sync(ctx, checksumDB, cms.Config.MDDir, cms.Logger)
 	go func() {
 		quit := make(chan os.Signal, 1)
 		signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT)
 		s := <-quit
 		cms.Logger.Info("Shutting down.", "signal", s.String())
-		checksumDB.Close()
 		cancel()
 		ctx, cancel2 := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel2()
 		shutdownErr <- srv.Shutdown(ctx)
+		checksumDB.Close()
 	}()
-	err = content.FirstSync(cms.Config.MDDir, checksumDB)
-	if err != nil {
-		return err
-	}
 
 	cms.Logger.Info(fmt.Sprintf("Starting server at port %d", cms.Config.Port))
 	if cms.Config.HTTPSMode {

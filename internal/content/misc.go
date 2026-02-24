@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -22,17 +23,10 @@ func OpenDB() (*sql.DB, error) {
 }
 
 func deleteHTML(path string) error {
-	stat, err := os.Stat(path)
-	if err != nil {
-		return err
-	}
-	if stat.IsDir() {
-		return os.RemoveAll(path)
-	}
-	return os.Remove(path)
+	return os.RemoveAll(path)
 }
 
-func purgeNonExistent(db *sql.DB, fileNames []string) error {
+func purgeNonExistent(db *sql.DB, fileNames []string, mdDir string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -49,18 +43,29 @@ func purgeNonExistent(db *sql.DB, fileNames []string) error {
 	defer rows.Close()
 
 	var file string
+	toDelete := []string{}
+	// When the rows.Next is open, you cannot write to DB
 	for rows.Next() {
+
 		if err := rows.Scan(&file); err != nil {
 			return err
 		}
 
 		// O(1) lookup instead of slices.Contains (O(n))
 		if _, ok := set[file]; !ok {
-			if err := deleteChecksum(db, file); err != nil {
-				return err
-			}
+			toDelete = append(toDelete, file)
+		}
+	}
+	for _, file := range toDelete {
+		if err := deleteChecksum(db, file); err != nil {
+			return err
+		}
 
-			// TODO: Implement HTML file deletion.
+		suffixCut, _ := strings.CutSuffix(file, ".md")
+		extensionSanitized, _ := strings.CutPrefix(suffixCut, mdDir)
+		err = deleteHTML(filepath.Join("assets", "pages", extensionSanitized+".html"))
+		if err != nil {
+			return err
 		}
 	}
 
