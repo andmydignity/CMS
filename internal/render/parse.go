@@ -2,8 +2,6 @@ package render
 
 import (
 	"bytes"
-	"fmt"
-	"strings"
 
 	"github.com/adrg/frontmatter"
 	"github.com/gomarkdown/markdown"
@@ -19,7 +17,7 @@ type meta struct {
 	category string `yaml:"category"`
 }
 
-func MdToHTML(loadFrom string) ([]byte, error) {
+func parseMdToHTML(loadFrom string) ([]byte, error) {
 	md, err := loadFromFile(loadFrom)
 	if err != nil {
 		return nil, err
@@ -35,15 +33,4 @@ func MdToHTML(loadFrom string) ([]byte, error) {
 	opts := html.RendererOptions{Flags: htmlFlags}
 	renderer := html.NewRenderer(opts)
 	return markdown.Render(doc, renderer), nil
-}
-
-func SaveMdtoHTML(loadFrom, saveTo string) error {
-	page, err := MdToHTML(loadFrom)
-	if err != nil {
-		return err
-	}
-	if _, found := strings.CutSuffix(saveTo, ".html"); !found {
-		return saveToFile(page, fmt.Sprintf("%v.html", saveTo))
-	}
-	return saveToFile(page, saveTo)
 }

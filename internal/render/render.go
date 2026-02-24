@@ -3,7 +3,16 @@ package render
 
 import (
 	"bytes"
+	"fmt"
 	"html/template"
+	"path/filepath"
+	"strings"
+)
+
+// assets/templates
+var (
+	templates     = [...]string{"base.tmpl", "css.tmpl", "css.tmpl", "jss.tmpl", "footer.tmpl", "navbar.tmpl"}
+	templateFiles = []string{}
 )
 
 func RenderTemplates(base string, data any, tmpls []string) ([]byte, error) {
@@ -17,4 +26,32 @@ func RenderTemplates(base string, data any, tmpls []string) ([]byte, error) {
 		return nil, err
 	}
 	return buffer.Bytes(), nil
+}
+
+type dataStruct struct {
+	Title   string
+	Content template.HTML
+}
+
+func SaveMdtoHTML(loadFrom, saveTo string) error {
+	page, err := parseMdToHTML(loadFrom)
+	if err != nil {
+		return err
+	}
+	data := dataStruct{"Example", template.HTML(page)}
+	// WARN: This is temporary
+	if len(templateFiles) == 0 {
+		for _, fileName := range templates {
+			templateFiles = append(templateFiles, filepath.Join("assets", "templates", fileName))
+		}
+	}
+	// You pass base just by name, for some reason
+	full, err := RenderTemplates("base.tmpl", &data, templateFiles[:])
+	if err != nil {
+		return err
+	}
+	if _, found := strings.CutSuffix(saveTo, ".html"); !found {
+		return saveToFile(full, fmt.Sprintf("%v.html", saveTo))
+	}
+	return saveToFile(full, saveTo)
 }

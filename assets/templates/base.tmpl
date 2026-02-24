@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta name="color-scheme" content="light dark">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{.Title}}</title>
+  {{ block "css" . }}{{ end }}
+  {{ block "js" . }}{{ end }}
+</head>
+
+<body>
+
+  <div class="navbar">
+    {{ block "navbar" . }}{{end}}
+  </div>
+
+  <main class="content">
+    {{ block "content" . }}{{.Content}}{{ end }}
+  </main>
+
+  <footer class="footer">
+    {{ block "footer" . }}{{end}}
+  </footer>
+
+</body>
+
+</html>
