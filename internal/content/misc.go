@@ -39,44 +39,72 @@ func purgeNonExistent(db *sql.DB, fileNames []string, mdDir string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// Build O(1) lookup set
+	// Build O(1) lookup set for existing markdown files
 	set := make(map[string]struct{}, len(fileNames))
 	for _, f := range fileNames {
 		set[f] = struct{}{}
 	}
 
+	// 1. Purge deleted files from the Database
 	rows, err := db.QueryContext(ctx, "SELECT filename FROM checksums")
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
 
 	var file string
 	toDelete := []string{}
-	// When the rows.Next is open, you cannot write to DB
 	for rows.Next() {
-
 		if err := rows.Scan(&file); err != nil {
+			rows.Close()
 			return err
 		}
-
-		// O(1) lookup instead of slices.Contains (O(n))
+		// O(1) lookup
 		if _, ok := set[file]; !ok {
 			toDelete = append(toDelete, file)
 		}
 	}
+	rows.Close() // Explicitly close rows before executing delete queries
+
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
 	for _, file := range toDelete {
 		if err := deleteChecksum(db, file); err != nil {
 			return err
 		}
-
-		suffixCut, _ := strings.CutSuffix(file, ".md")
-		extensionSanitized, _ := strings.CutPrefix(suffixCut, mdDir)
-		err = deleteHTML(filepath.Join("assets", "pages", extensionSanitized+".html"))
-		if err != nil {
-			return err
-		}
 	}
 
-	return rows.Err()
+	// 2. Purge orphaned HTML files from assets/pages/
+	pagesDir := filepath.Join("assets", "pages")
+	err = filepath.WalkDir(pagesDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			if os.IsNotExist(err) {
+				return nil // assets/pages/ doesn't exist yet, nothing to purge
+			}
+			return err
+		}
+
+		if !d.IsDir() && strings.HasSuffix(path, ".html") {
+			// Find the relative path of the HTML file
+			relPath, err := filepath.Rel(pagesDir, path)
+			if err != nil {
+				return err
+			}
+
+			// Reconstruct what the absolute path to the .md file SHOULD be
+			mdRelPath := strings.TrimSuffix(relPath, ".html") + ".md"
+			expectedMdPath := filepath.Join(mdDir, mdRelPath)
+
+			// If the expected .md file is not in our active set, this HTML file is orphaned
+			if _, ok := set[expectedMdPath]; !ok {
+				if err := os.Remove(path); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+
+	return err
 }
