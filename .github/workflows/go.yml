@@ -7,31 +7,30 @@ on:
 jobs:
   build_and_test:
     name: Build & Test (${{ matrix.os }}-${{ matrix.arch }})
-    runs-on: ${{ matrix.os == 'macos' && 'macos-latest' || 'ubuntu-latest' }}
+    # GitHub runners use 'macos-latest', but Go uses 'darwin'
+    runs-on: ${{ matrix.os == 'darwin' && 'macos-latest' || 'ubuntu-latest' }}
     
     strategy:
       fail-fast: true 
-      matrix: # The 'matrix' must be inside 'strategy'
+      matrix:
         include:
-          # Linux Builds
           - os: linux
             arch: amd64
             binary_name: WIPCMS-linux-amd64
           - os: linux
             arch: arm64
             binary_name: WIPCMS-linux-arm64
-          # Windows Builds
           - os: windows
             arch: amd64
             binary_name: WIPCMS-windows-amd64.exe
           - os: windows
             arch: arm64
             binary_name: WIPCMS-windows-arm64.exe
-          # macOS Builds (CGO Enabled)
-          - os: macos
+          # Changed 'macos' to 'darwin' for the compiler
+          - os: darwin
             arch: amd64
             binary_name: WIPCMS-macos-amd64
-          - os: macos
+          - os: darwin
             arch: arm64
             binary_name: WIPCMS-macos-arm64
 
@@ -48,9 +47,9 @@ jobs:
 
       - name: Build
         env:
-          GOOS: ${{ matrix.os }}
+          GOOS: ${{ matrix.os }} # This will now correctly be 'darwin'
           GOARCH: ${{ matrix.arch }}
-          CGO_ENABLED: ${{ matrix.os == 'macos' && '1' || '0' }}
+          CGO_ENABLED: ${{ matrix.os == 'darwin' && '1' || '0' }}
         run: go build -v -o ${{ matrix.binary_name }} ./cmd/app
 
       - name: Upload Artifact
