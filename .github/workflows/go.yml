@@ -7,33 +7,33 @@ on:
 jobs:
   build_and_test:
     name: Build & Test (${{ matrix.os }}-${{ matrix.arch }})
-    # Use macOS runner only for macOS builds to support CGO
-    runs-on: ${{ matrix.os == 'linux' && 'ubuntu-latest' || (matrix.os == 'macos' && 'macos-latest' || 'ubuntu-latest') }}
+    runs-on: ${{ matrix.os == 'macos' && 'macos-latest' || 'ubuntu-latest' }}
+    
     strategy:
       fail-fast: true 
-    matrix:
-      include:
-        # Linux Builds
-        - os: linux
-          arch: amd64
-          binary_name: WIPCMS-linux-amd64
-        - os: linux
-          arch: arm64
-          binary_name: WIPCMS-linux-arm64
-        # Windows Builds
-        - os: windows
-          arch: amd64
-          binary_name: WIPCMS-windows-amd64.exe
-        - os: windows
-          arch: arm64
-          binary_name: WIPCMS-windows-arm64.exe
-        # macOS Builds (CGO Enabled)
-        - os: macos
-          arch: amd64
-          binary_name: WIPCMS-macos-amd64
-        - os: macos
-          arch: arm64
-          binary_name: WIPCMS-macos-arm64
+      matrix: # The 'matrix' must be inside 'strategy'
+        include:
+          # Linux Builds
+          - os: linux
+            arch: amd64
+            binary_name: WIPCMS-linux-amd64
+          - os: linux
+            arch: arm64
+            binary_name: WIPCMS-linux-arm64
+          # Windows Builds
+          - os: windows
+            arch: amd64
+            binary_name: WIPCMS-windows-amd64.exe
+          - os: windows
+            arch: arm64
+            binary_name: WIPCMS-windows-arm64.exe
+          # macOS Builds (CGO Enabled)
+          - os: macos
+            arch: amd64
+            binary_name: WIPCMS-macos-amd64
+          - os: macos
+            arch: arm64
+            binary_name: WIPCMS-macos-arm64
 
     steps:
       - uses: actions/checkout@v4
@@ -50,7 +50,6 @@ jobs:
         env:
           GOOS: ${{ matrix.os }}
           GOARCH: ${{ matrix.arch }}
-          # CGO is only active for macOS as requested
           CGO_ENABLED: ${{ matrix.os == 'macos' && '1' || '0' }}
         run: go build -v -o ${{ matrix.binary_name }} ./cmd/app
 
@@ -78,6 +77,7 @@ jobs:
           tag_name: latest
           files: ./dist/*
           prerelease: false
+          make_latest: true
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
