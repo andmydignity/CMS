@@ -1,53 +1,82 @@
-name: Go Build and Release
+name: Go Multi-Platform Release
 
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  build_and_test:
+    name: Build & Test (${{ matrix.os }}-${{ matrix.arch }})
+    # Use macOS runner only for macOS builds to support CGO
+    runs-on: ${{ matrix.os == 'linux' && 'ubuntu-latest' || (matrix.os == 'macos' && 'macos-latest' || 'ubuntu-latest') }}
+    strategy:
+      fail-fast: true 
+    matrix:
+      include:
+        # Linux Builds
+        - os: linux
+          arch: amd64
+          binary_name: WIPCMS-linux-amd64
+        - os: linux
+          arch: arm64
+          binary_name: WIPCMS-linux-arm64
+        # Windows Builds
+        - os: windows
+          arch: amd64
+          binary_name: WIPCMS-windows-amd64.exe
+        - os: windows
+          arch: arm64
+          binary_name: WIPCMS-windows-arm64.exe
+        # macOS Builds (CGO Enabled)
+        - os: macos
+          arch: amd64
+          binary_name: WIPCMS-macos-amd64
+        - os: macos
+          arch: arm64
+          binary_name: WIPCMS-macos-arm64
+
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v5 # Updated to v5
+        uses: actions/setup-go@v5
         with:
           go-version: '1.26'
-
-      - name: Build
-        run: go build -v -o my-app ./cmd/app # Naming the output binary
 
       - name: Test
         run: go test -v ./cmd/app
 
-      # We upload the binary as an artifact so the next job can use it
-      - name: Upload Build Artifact
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      - name: Build
+        env:
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
+          # CGO is only active for macOS as requested
+          CGO_ENABLED: ${{ matrix.os == 'macos' && '1' || '0' }}
+        run: go build -v -o ${{ matrix.binary_name }} ./cmd/app
+
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: binary
-          path: my-app
+          name: ${{ matrix.binary_name }}
+          path: ${{ matrix.binary_name }}
 
   release:
-    needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build_and_test
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Crucial for creating releases/tags
+      contents: write
     steps:
-      - name: Download Build Artifact
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          name: binary
+          path: ./dist
+          merge-multiple: true
 
       - name: Update Rolling Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          files: my-app
+          files: ./dist/*
           prerelease: false
           generate_release_notes: true
         env:
