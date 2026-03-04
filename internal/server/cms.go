@@ -24,6 +24,7 @@ type CmsConfig struct {
 		Burst int
 	}
 	HTTPSMode bool
+	Ratelimit bool
 	CertFile  string
 	KeyFile   string
 	MDDir     string
@@ -38,7 +39,7 @@ type CmsStruct struct {
 func (cms *CmsStruct) Start() error {
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cms.Config.Port),
-		Handler:      cms.routes(),
+		Handler:      cms.routes(cms.Config.Ratelimit),
 		IdleTimeout:  time.Minute,
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,

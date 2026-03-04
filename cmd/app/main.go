@@ -2,52 +2,49 @@ package main
 
 import (
 	"errors"
-	"flag"
 	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 
 	paths "cms/internal"
 	"cms/internal/server"
 
-	"github.com/joho/godotenv"
+	"gopkg.in/yaml.v2"
 )
+
+type config struct {
+	Port          int     `yaml:"port"`
+	CertPath      string  `yaml:"certPath"`
+	KeyPath       string  `yaml:"keyPath"`
+	MdPath        string  `yaml:"mdPath"`
+	SiteName      string  `yaml:"siteName"`
+	HTTPSMode     bool    `yaml:"httpsMode"`
+	Ratelimit     bool    `yaml:"ratelimit"`
+	Replenishment float64 `yaml:"replenishment"`
+	Burst         int     `yaml:"burst"`
+}
 
 func main() {
 	paths.SetPaths()
-	port := flag.Int("p", 0, "Port to listen on")
-	replenishment := flag.Float64("rps", 10.0, "Rate limit replenishment rate (+1 token every second 1/rps)")
-	burst := flag.Int("burst", 20, "Rate limit max token per client.")
-	https := flag.Bool("httpsOn", true, "Use HTTPS. (-httpsOn=false to disable)")
-	certPath := flag.String("certPath", "", "Path to certificate file.")
-	keyPath := flag.String("keyFile", "", "Path to key file")
-	mdPath := flag.String("mdPath", "", "Path to the folder containing md files")
-	siteName := flag.String("siteName", "MySite", "Site name to display")
-	flag.Parse()
-	if *mdPath == "" || *port == 0 {
-		// TODO: Add the remaining ones later on
-		slog.Default().Info("mdPath and/or port is not supplied from flags, loading configuration from .env")
-		err := godotenv.Load(filepath.Join(paths.BinaryPath, ".env"))
-		if err != nil {
-			slog.Default().Error("Error while accessing .env file", "error", err.Error())
-			os.Exit(3)
-		}
-		*port, err = strconv.Atoi(os.Getenv("port"))
-		if err != nil {
-			slog.Default().Error("Invalid port value", "error", err.Error())
-			os.Exit(4)
-		}
-		*mdPath = os.Getenv("mdPath")
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	file, err := os.Open(filepath.Join(paths.BinaryPath, "config.yaml"))
+	if err != nil {
+		logger.Error("Couldn't access config.yaml file!", "error", err.Error())
+		os.Exit(2)
 	}
-
-	cmsConfig := server.CmsConfig{*port, struct {
+	var cfg config
+	decoder := yaml.NewDecoder(file)
+	if err = decoder.Decode(&cfg); err != nil {
+		logger.Error("Error while parsing YAML config!", "error", err.Error())
+		os.Exit(3)
+	}
+	cmsConfig := server.CmsConfig{cfg.Port, struct {
 		Rps   float64
 		Burst int
-	}{*replenishment, *burst}, *https, *certPath, *keyPath, *mdPath, *siteName}
-	cms := server.CmsStruct{slog.New(slog.NewTextHandler(os.Stdout, nil)), &cmsConfig}
-	err := cms.Start()
+	}{cfg.Replenishment, cfg.Burst}, cfg.HTTPSMode, cfg.Ratelimit, cfg.CertPath, cfg.KeyPath, cfg.MdPath, cfg.SiteName}
+	cms := server.CmsStruct{logger, &cmsConfig}
+	err = cms.Start()
 	if !errors.Is(err, http.ErrServerClosed) && err != nil {
 		cms.Logger.Error("Error while closing the server.", "error", err.Error())
 		os.Exit(1)

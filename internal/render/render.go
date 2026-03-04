@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -13,10 +14,6 @@ import (
 )
 
 // assets/templates
-var (
-	templates     = [...]string{"base.tmpl", "footer.tmpl", "navbar.tmpl", "sidebar.tmpl"}
-	templateFiles = []string{}
-)
 
 func RenderTemplates(base string, data any, tmpls []string) ([]byte, error) {
 	tmpl, err := template.ParseFiles(tmpls...)
@@ -48,15 +45,21 @@ func SaveMdtoHTML(loadFrom, saveTo string, rndrConf *RenderConfig) error {
 	}
 	title += fmt.Sprintf(" | %v", rndrConf.SiteName)
 	fileName, _ := strings.CutSuffix(filepath.Base(loadFrom), ".md")
-	// WARN: Temp
-	data := dataStruct{title, template.HTML(page), fileName, fileName, rndrConf.SiteName, time.Now().Year(), rndrConf.SidebarLinks}
-	if len(templateFiles) == 0 {
-		for _, fileName := range templates {
-			templateFiles = append(templateFiles, filepath.Join(paths.AssetsPath, "templates", fileName))
+	entries, err := os.ReadDir(filepath.Join(paths.AssetsPath, "templates"))
+	if err != nil {
+		return err
+	}
+	templates := []string{}
+	for _, e := range entries {
+		_, has := strings.CutSuffix(e.Name(), ".tmpl")
+		if has && !e.IsDir() {
+			templates = append(templates, filepath.Join(paths.AssetsPath, "templates", e.Name()))
 		}
 	}
+
+	data := dataStruct{title, template.HTML(page), fileName, fileName, rndrConf.SiteName, time.Now().Year(), rndrConf.SidebarLinks}
 	// You pass base just by name, for some reason
-	full, err := RenderTemplates("base.tmpl", &data, templateFiles[:])
+	full, err := RenderTemplates("base.tmpl", &data, templates[:])
 	if err != nil {
 		return err
 	}

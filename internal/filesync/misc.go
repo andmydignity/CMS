@@ -12,13 +12,11 @@ import (
 	paths "cms/internal"
 )
 
-var dbLocation = paths.DBPath
-
 var ErrDidntExist = errors.New("didn't exist in the first place")
 
 // dbName= name of the db INSIDE db folder, not the path
 func OpenDB(dbName string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite", filepath.Join(dbLocation, dbName))
+	db, err := sql.Open("sqlite", filepath.Join(paths.DBPath, dbName))
 	if err != nil {
 		return nil, err
 	}

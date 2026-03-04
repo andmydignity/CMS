@@ -1,0 +1,9 @@
+port: 8080
+certPath: ""
+keyPath: ""
+mdPath: "mdFiles"
+siteName: "My Site"
+httpsMode: true
+ratelimit: false
+replenishment: 6.0
+burst: 30
