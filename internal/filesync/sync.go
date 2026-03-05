@@ -54,7 +54,7 @@ func FirstSync(mdDir string, db *sql.DB, rndrConf *render.RenderConfig) error {
 			appendChecksum(db, file, checksum)
 			prefixCut, _ := strings.CutPrefix(file, mdDirAbs)
 			extensionSanitized, _ := strings.CutSuffix(prefixCut, ".md")
-			err = render.SaveMdtoHTML(file, filepath.Join(paths.AssetsPath, "pages", extensionSanitized), rndrConf)
+			err = render.SaveMdtoHTML(file, filepath.Join(paths.AssetsPath, "pages", extensionSanitized), rndrConf, db)
 			if err != nil {
 				return err
 			}
@@ -68,7 +68,7 @@ func FirstSync(mdDir string, db *sql.DB, rndrConf *render.RenderConfig) error {
 			}
 			prefixCut, _ := strings.CutPrefix(file, mdDirAbs)
 			extensionSanitized, _ := strings.CutSuffix(prefixCut, ".md")
-			err = render.SaveMdtoHTML(file, filepath.Join(paths.AssetsPath, "pages", extensionSanitized), rndrConf)
+			err = render.SaveMdtoHTML(file, filepath.Join(paths.AssetsPath, "pages", extensionSanitized), rndrConf, db)
 			if err != nil {
 				return err
 			}
@@ -224,7 +224,7 @@ func Sync(ctx context.Context, db *sql.DB, mdDir string, logger *slog.Logger, rn
 			extensionSanitized, _ := strings.CutPrefix(suffixCut, absMdDir)
 			if err := render.SaveMdtoHTML(
 				path,
-				filepath.Join(paths.AssetsPath, "pages", extensionSanitized), rndrConf); err != nil {
+				filepath.Join(paths.AssetsPath, "pages", extensionSanitized), rndrConf, db); err != nil {
 				logger.Error("Render error", "error", err)
 			}
 		}

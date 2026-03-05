@@ -29,6 +29,8 @@ type CmsConfig struct {
 	KeyFile   string
 	MDDir     string
 	SiteName  string
+	LogoPath  string
+	IconPath  string
 }
 
 type CmsStruct struct {
@@ -46,14 +48,14 @@ func (cms *CmsStruct) Start() error {
 		ErrorLog:     slog.NewLogLogger(cms.Logger.Handler(), slog.LevelError),
 	}
 	shutdownErr := make(chan error)
-	checksumDB, err := filesync.OpenDB("checksum.db")
+	checksumDB, err := filesync.OpenDB("database.db")
 	if err != nil {
 		cms.Logger.Error("Couldn't open checksum database.")
 	}
 	defer checksumDB.Close()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	rdr := &render.RenderConfig{cms.Config.SiteName, nil}
+	rdr := &render.RenderConfig{cms.Config.SiteName, "", ""}
 	err = filesync.FirstSync(cms.Config.MDDir, checksumDB, rdr)
 	if err != nil {
 		return err

@@ -3,6 +3,7 @@ package render
 
 import (
 	"bytes"
+	"database/sql"
 	"fmt"
 	"html/template"
 	"os"
@@ -29,21 +30,22 @@ func RenderTemplates(base string, data any, tmpls []string) ([]byte, error) {
 }
 
 type dataStruct struct {
-	Title        string
-	Content      template.HTML
-	Style        string
-	Script       string
-	SiteName     string
-	Year         int
-	SideBarLinks []Link
+	Title    string
+	Content  template.HTML
+	Style    string
+	Script   string
+	SiteName string
+	Year     int
 }
 
-func SaveMdtoHTML(loadFrom, saveTo string, rndrConf *RenderConfig) error {
+func SaveMdtoHTML(loadFrom, saveTo string, rndrConf *RenderConfig, db *sql.DB) error {
 	page, title, err := parseMdToHTML(loadFrom)
 	if err != nil {
 		return err
 	}
-	title += fmt.Sprintf(" | %v", rndrConf.SiteName)
+	overviewText := getOverviewText(117, page) + "..."
+	overviewImg := overviewIMG(page)
+	url, _ := strings.CutSuffix(filepath.Base(saveTo), ".html")
 	fileName, _ := strings.CutSuffix(filepath.Base(loadFrom), ".md")
 	entries, err := os.ReadDir(filepath.Join(paths.AssetsPath, "templates"))
 	if err != nil {
@@ -57,14 +59,48 @@ func SaveMdtoHTML(loadFrom, saveTo string, rndrConf *RenderConfig) error {
 		}
 	}
 
-	data := dataStruct{title, template.HTML(page), fileName, fileName, rndrConf.SiteName, time.Now().Year(), rndrConf.SidebarLinks}
+	data := dataStruct{title, template.HTML(page), fileName, fileName, rndrConf.SiteName, time.Now().Year()}
 	// You pass base just by name, for some reason
 	full, err := RenderTemplates("base.tmpl", &data, templates[:])
 	if err != nil {
 		return err
 	}
 	if _, found := strings.CutSuffix(saveTo, ".html"); !found {
-		return saveToFile(full, fmt.Sprintf("%v.html", saveTo))
+		err = saveToFile(full, fmt.Sprintf("%v.html", saveTo))
 	}
-	return saveToFile(full, saveTo)
+	if err != nil {
+		return err
+	}
+	err = saveToFile(full, saveTo)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec("INSERT INTO pages (url, title, overview, overviewImg) VALUES (?,?,?,?)", url, title, overviewText, overviewImg)
+	if err != nil {
+		return err
+	}
+	// TEMP
+	homeConf := HomeRenderConf{}
+	return RenderHome(&homeConf)
+}
+
+func RenderHome(conf *HomeRenderConf) error {
+	entries, err := os.ReadDir(filepath.Join(paths.AssetsPath, "homePage", "templates"))
+	if err != nil {
+		return err
+	}
+	templates := []string{}
+	for _, e := range entries {
+		_, has := strings.CutSuffix(e.Name(), ".tmpl")
+		if has && !e.IsDir() {
+			templates = append(templates, filepath.Join(paths.AssetsPath, "homePage", "templates", e.Name()))
+		}
+	}
+	// Temp
+	data := struct{}{}
+	home, err := RenderTemplates("base.tmpl", &data, templates)
+	if err != nil {
+		return err
+	}
+	return saveToFile(home, filepath.Join(paths.AssetsPath, "homePage", "home.html"))
 }

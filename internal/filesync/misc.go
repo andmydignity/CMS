@@ -24,6 +24,7 @@ func OpenDB(dbName string) (*sql.DB, error) {
 	if err != nil {
 		return nil, err
 	}
+	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS pages (url TEXT PRIMARY KEY,title TEXT NOT NULL, overview TEXT, overviewImg TEXT ,modifiedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP )`)
 	return db, nil
 }
 

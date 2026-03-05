@@ -19,6 +19,8 @@ type config struct {
 	KeyPath       string  `yaml:"keyPath"`
 	MdPath        string  `yaml:"mdPath"`
 	SiteName      string  `yaml:"siteName"`
+	LogoPath      string  `yaml:"logoPath"`
+	IconPath      string  `yaml:"iconPath"`
 	HTTPSMode     bool    `yaml:"httpsMode"`
 	Ratelimit     bool    `yaml:"ratelimit"`
 	Replenishment float64 `yaml:"replenishment"`
@@ -42,7 +44,7 @@ func main() {
 	cmsConfig := server.CmsConfig{cfg.Port, struct {
 		Rps   float64
 		Burst int
-	}{cfg.Replenishment, cfg.Burst}, cfg.HTTPSMode, cfg.Ratelimit, cfg.CertPath, cfg.KeyPath, cfg.MdPath, cfg.SiteName}
+	}{cfg.Replenishment, cfg.Burst}, cfg.HTTPSMode, cfg.Ratelimit, cfg.CertPath, cfg.KeyPath, cfg.MdPath, cfg.SiteName, cfg.LogoPath, cfg.IconPath}
 	cms := server.CmsStruct{logger, &cmsConfig}
 	err = cms.Start()
 	if !errors.Is(err, http.ErrServerClosed) && err != nil {
