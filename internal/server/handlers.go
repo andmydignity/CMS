@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -14,7 +13,12 @@ import (
 )
 
 func (cms *CmsStruct) homeHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	fmt.Fprint(w, "Nothing here for now.")
+	home, err := os.ReadFile(filepath.Join(paths.AssetsPath, "homePage", "home.html"))
+	if err != nil {
+		cms.internalError(w, err)
+		return
+	}
+	w.Write(home)
 }
 
 func (cms *CmsStruct) pageHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {

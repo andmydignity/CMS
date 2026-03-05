@@ -2,9 +2,12 @@ package render
 
 import (
 	"bytes"
+	"context"
+	"database/sql"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"golang.org/x/net/html"
 )
@@ -21,12 +24,6 @@ type RenderConfig struct {
 	SiteName string
 	LogoPath string
 	IconPath string
-}
-type HomeRenderConf struct {
-	SiteName string
-	LogoPath string
-	IconPath string
-	Pages    []PageInfo
 }
 
 func loadFromFile(path string) ([]byte, error) {
@@ -57,14 +54,14 @@ func getOverviewText(length int, page []byte) string {
 		if n.Type == html.ElementNode && n.Data == "p" {
 			text := getText(n)
 			for _, r := range text {
-				if chars >= 120 {
+				if chars >= length {
 					break
 				}
 				result.WriteRune(r)
 				chars++
 			}
 		}
-		for c := n.FirstChild; c != nil && chars < 120; c = c.NextSibling {
+		for c := n.FirstChild; c != nil && chars < length; c = c.NextSibling {
 			f(c)
 		}
 	}
@@ -105,4 +102,28 @@ func overviewIMG(page []byte) string {
 	}
 	f(doc)
 	return imgSrc
+}
+
+func getPages(numberOf int, db *sql.DB) ([]PageInfo, error) {
+	pages := []PageInfo{}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	res, err := db.QueryContext(ctx, "SELECT * FROM pages")
+	if err != nil {
+		return nil, nil
+	}
+	i := 0
+
+	for res.Next() {
+		if i >= numberOf {
+			break
+		}
+		var page PageInfo
+		err = res.Scan(&page.URL, &page.Title, &page.OverviewText, &page.ImgPath, &page.ModifiedAt)
+		if err != nil {
+			return nil, nil
+		}
+		pages = append(pages, page)
+	}
+	return pages, nil
 }

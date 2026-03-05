@@ -38,6 +38,17 @@ type dataStruct struct {
 	Year     int
 }
 
+type homeDataStruct struct {
+	Title    string
+	Style    string
+	Script   string
+	SiteName string
+	Year     int
+	Pages    []PageInfo
+	LogoPath string
+	IconPath string
+}
+
 func SaveMdtoHTML(loadFrom, saveTo string, rndrConf *RenderConfig, db *sql.DB) error {
 	page, title, err := parseMdToHTML(loadFrom)
 	if err != nil {
@@ -46,6 +57,7 @@ func SaveMdtoHTML(loadFrom, saveTo string, rndrConf *RenderConfig, db *sql.DB) e
 	overviewText := getOverviewText(117, page) + "..."
 	overviewImg := overviewIMG(page)
 	url, _ := strings.CutSuffix(filepath.Base(saveTo), ".html")
+	url = "/pages/" + url
 	fileName, _ := strings.CutSuffix(filepath.Base(loadFrom), ".md")
 	entries, err := os.ReadDir(filepath.Join(paths.AssetsPath, "templates"))
 	if err != nil {
@@ -75,16 +87,22 @@ func SaveMdtoHTML(loadFrom, saveTo string, rndrConf *RenderConfig, db *sql.DB) e
 	if err != nil {
 		return err
 	}
-	_, err = db.Exec("INSERT INTO pages (url, title, overview, overviewImg) VALUES (?,?,?,?)", url, title, overviewText, overviewImg)
+	_, err = db.Exec(
+		"INSERT INTO pages (url, title, overview, overviewImg) VALUES (?, ?, ?, ?) ON CONFLICT(url) DO UPDATE SET title=excluded.title, overview=excluded.overview, overviewImg=excluded.overviewImg",
+		url, title, overviewText, overviewImg,
+	)
 	if err != nil {
 		return err
 	}
-	// TEMP
-	homeConf := HomeRenderConf{}
+	pages, err := getPages(25, db)
+	if err != nil {
+		return err
+	}
+	homeConf := homeDataStruct{title, fileName, fileName, rndrConf.SiteName, time.Now().Year(), pages, rndrConf.LogoPath, rndrConf.IconPath}
 	return RenderHome(&homeConf)
 }
 
-func RenderHome(conf *HomeRenderConf) error {
+func RenderHome(conf *homeDataStruct) error {
 	entries, err := os.ReadDir(filepath.Join(paths.AssetsPath, "homePage", "templates"))
 	if err != nil {
 		return err
@@ -96,9 +114,7 @@ func RenderHome(conf *HomeRenderConf) error {
 			templates = append(templates, filepath.Join(paths.AssetsPath, "homePage", "templates", e.Name()))
 		}
 	}
-	// Temp
-	data := struct{}{}
-	home, err := RenderTemplates("base.tmpl", &data, templates)
+	home, err := RenderTemplates("base.tmpl", conf, templates)
 	if err != nil {
 		return err
 	}

@@ -3,6 +3,8 @@ certPath: ""
 keyPath: ""
 mdPath: "mdFiles"
 siteName: "My Site"
+logoPath: ""
+iconPath: ""
 httpsMode: true
 ratelimit: false
 replenishment: 6.0
