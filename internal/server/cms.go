@@ -15,6 +15,8 @@ import (
 	paths "cms/internal"
 	"cms/internal/filesync"
 	"cms/internal/render"
+
+	"github.com/caddyserver/certmagic"
 )
 
 type CmsConfig struct {
@@ -31,6 +33,7 @@ type CmsConfig struct {
 	SiteName  string
 	LogoPath  string
 	IconPath  string
+	Domains   []string
 }
 
 type CmsStruct struct {
@@ -75,7 +78,9 @@ func (cms *CmsStruct) Start() error {
 
 	cms.Logger.Info(fmt.Sprintf("Starting server at port %d", cms.Config.Port))
 	if cms.Config.HTTPSMode {
-		if cms.Config.KeyFile == "" || cms.Config.CertFile == "" {
+		if cms.Config.Domains != nil && (cms.Config.CertFile == "" || cms.Config.KeyFile == "") {
+			certmagic.HTTPS(cms.Config.Domains, cms.routes(cms.Config.Ratelimit))
+		} else if cms.Config.KeyFile == "" || cms.Config.CertFile == "" {
 			cms.Logger.Warn("HTTPS mode is on but no cert files are supplied. Using self-signed certs, which browsers will complain about.")
 			_, _, err := certSetup()
 			if err != nil {

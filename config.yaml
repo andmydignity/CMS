@@ -9,3 +9,5 @@ httpsMode: true
 ratelimit: false
 replenishment: 6.0
 burst: 30
+#If you add a single domain that points to this server, you can leave the cert and key path empty. It will get securely signed for you.
+#domains: []

@@ -14,17 +14,18 @@ import (
 )
 
 type config struct {
-	Port          int     `yaml:"port"`
-	CertPath      string  `yaml:"certPath"`
-	KeyPath       string  `yaml:"keyPath"`
-	MdPath        string  `yaml:"mdPath"`
-	SiteName      string  `yaml:"siteName"`
-	LogoPath      string  `yaml:"logoPath"`
-	IconPath      string  `yaml:"iconPath"`
-	HTTPSMode     bool    `yaml:"httpsMode"`
-	Ratelimit     bool    `yaml:"ratelimit"`
-	Replenishment float64 `yaml:"replenishment"`
-	Burst         int     `yaml:"burst"`
+	Port          int      `yaml:"port"`
+	CertPath      string   `yaml:"certPath"`
+	KeyPath       string   `yaml:"keyPath"`
+	MdPath        string   `yaml:"mdPath"`
+	SiteName      string   `yaml:"siteName"`
+	LogoPath      string   `yaml:"logoPath"`
+	IconPath      string   `yaml:"iconPath"`
+	HTTPSMode     bool     `yaml:"httpsMode"`
+	Ratelimit     bool     `yaml:"ratelimit"`
+	Replenishment float64  `yaml:"replenishment"`
+	Burst         int      `yaml:"burst"`
+	Domains       []string `yaml:"domains"`
 }
 
 func main() {
@@ -44,7 +45,7 @@ func main() {
 	cmsConfig := server.CmsConfig{cfg.Port, struct {
 		Rps   float64
 		Burst int
-	}{cfg.Replenishment, cfg.Burst}, cfg.HTTPSMode, cfg.Ratelimit, cfg.CertPath, cfg.KeyPath, cfg.MdPath, cfg.SiteName, cfg.LogoPath, cfg.IconPath}
+	}{cfg.Replenishment, cfg.Burst}, cfg.HTTPSMode, cfg.Ratelimit, cfg.CertPath, cfg.KeyPath, cfg.MdPath, cfg.SiteName, cfg.LogoPath, cfg.IconPath, cfg.Domains}
 	cms := server.CmsStruct{logger, &cmsConfig}
 	err = cms.Start()
 	if !errors.Is(err, http.ErrServerClosed) && err != nil {
