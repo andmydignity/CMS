@@ -8,12 +8,39 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"testing"
 	"time"
 
 	paths "cms/internal"
+
+	_ "modernc.org/sqlite"
 )
 
 var ErrDidntExist = errors.New("didn't exist in the first place")
+
+func mockDB(t *testing.T) *sql.DB {
+	t.Helper()
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal("Failed to create mockup db.", "error", err.Error())
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, err = db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS checksums (filename TEXT PRIMARY KEY,hash TEXT NOT NULL)`)
+	if err != nil {
+		t.Fatal("Failed to create checksum table", "error", err.Error())
+		return nil
+	}
+	_, err = db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS pages (url TEXT PRIMARY KEY,title TEXT NOT NULL, overview TEXT, overviewImg TEXT ,modifiedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP )`)
+	if err != nil {
+		t.Fatal("Failed to create pages table.", "error", err.Error())
+	}
+	t.Cleanup(func() {
+		db.Close()
+	})
+	return db
+}
 
 // dbName= name of the db INSIDE db folder, not the path
 func OpenDB(dbName string) (*sql.DB, error) {

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"os"
 	"time"
@@ -25,6 +26,9 @@ func checksumCalculate(pathTo string) (string, error) {
 }
 
 func appendChecksum(db *sql.DB, mdFile, checksum string) error {
+	if mdFile == "" {
+		return fmt.Errorf("empty mdFile passed")
+	}
 	var err error
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -36,6 +40,9 @@ func appendChecksum(db *sql.DB, mdFile, checksum string) error {
 }
 
 func compareChecksum(db *sql.DB, mdFile, checksum string) (bool, error) {
+	if mdFile == "" {
+		return false, fmt.Errorf("empty mdFile passed")
+	}
 	var err error
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -44,7 +51,7 @@ func compareChecksum(db *sql.DB, mdFile, checksum string) (bool, error) {
 	err = row.Scan(&exist)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return false, ErrDidntExist
+			return false, nil
 		}
 		return false, err
 	}
@@ -52,6 +59,9 @@ func compareChecksum(db *sql.DB, mdFile, checksum string) (bool, error) {
 }
 
 func deleteChecksum(db *sql.DB, mdFile string) error {
+	if mdFile == "" {
+		return fmt.Errorf("empty mdFile passed")
+	}
 	var err error
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
