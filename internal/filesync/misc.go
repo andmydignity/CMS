@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"testing"
 	"time"
 
 	paths "cms/internal"
@@ -18,30 +17,6 @@ import (
 
 var ErrDidntExist = errors.New("didn't exist in the first place")
 
-func mockDB(t *testing.T) *sql.DB {
-	t.Helper()
-	db, err := sql.Open("sqlite", ":memory:")
-	if err != nil {
-		t.Fatal("Failed to create mockup db.", "error", err.Error())
-		return nil
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	_, err = db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS checksums (filename TEXT PRIMARY KEY,hash TEXT NOT NULL)`)
-	if err != nil {
-		t.Fatal("Failed to create checksum table", "error", err.Error())
-		return nil
-	}
-	_, err = db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS pages (url TEXT PRIMARY KEY,title TEXT NOT NULL, overview TEXT, overviewImg TEXT ,modifiedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP )`)
-	if err != nil {
-		t.Fatal("Failed to create pages table.", "error", err.Error())
-	}
-	t.Cleanup(func() {
-		db.Close()
-	})
-	return db
-}
-
 // dbName= name of the db INSIDE db folder, not the path
 func OpenDB(dbName string) (*sql.DB, error) {
 	db, err := sql.Open("sqlite", filepath.Join(paths.DBPath, dbName))
@@ -50,7 +25,7 @@ func OpenDB(dbName string) (*sql.DB, error) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	_, err = db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS checksums (filename TEXT PRIMARY KEY,hash TEXT NOT NULL)`)
+	_, err = db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS checksums (filename TEXT PRIMARY KEY CHECK (filename LIKE '%.md'),hash TEXT NOT NULL)`)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +41,11 @@ func deleteHTML(path string) error {
 	return err
 }
 
-func purgeNonExistent(db *sql.DB, fileNames []string, mdDir string) error {
+// Func purgeOrphans first purges orphaned checksum entries, then orphaned pages in assets/pages and finally orphaned pages entries in DB.
+func purgeOrphans(db *sql.DB, fileNames []string, mdDir string) error {
+	if mdDir == "" {
+		return fmt.Errorf("mdDir cannot be empty")
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -117,7 +96,17 @@ func purgeNonExistent(db *sql.DB, fileNames []string, mdDir string) error {
 
 	// 2. Purge orphaned HTML files from assets/pages/
 	pagesDir := filepath.Join(paths.AssetsPath, "pages")
-	err = filepath.WalkDir(pagesDir, func(path string, d os.DirEntry, err error) error {
+	err = purgeOrphanedHTMLs(pagesDir, mdDir, set, db)
+	if err != nil {
+		return err
+	}
+	err = purgeOrphanPages(mdDir, db)
+
+	return err
+}
+
+func purgeOrphanedHTMLs(pagesDir, mdDir string, set map[string]struct{}, db *sql.DB) error {
+	err := filepath.WalkDir(pagesDir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			if os.IsNotExist(err) {
 				return nil // assets/pages/ doesn't exist yet, nothing to purge
@@ -149,11 +138,6 @@ func purgeNonExistent(db *sql.DB, fileNames []string, mdDir string) error {
 		}
 		return nil
 	})
-	if err != nil {
-		return err
-	}
-	err = purgeOrphanPages(mdDir, db)
-
 	return err
 }
 

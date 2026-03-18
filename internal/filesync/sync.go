@@ -3,7 +3,6 @@ package filesync
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -17,8 +16,6 @@ import (
 	"github.com/sgtdi/fswatcher"
 	_ "modernc.org/sqlite"
 )
-
-// TODO: When a folder is renamed, a new folder in pages should generate.
 
 func FirstSync(mdDir string, db *sql.DB, rndrConf *render.RenderConfig) error {
 	mdDirAbs, err := filepath.Abs(mdDir)
@@ -41,7 +38,7 @@ func FirstSync(mdDir string, db *sql.DB, rndrConf *render.RenderConfig) error {
 		return err
 	}
 
-	fullpaths := []string{}
+	existingFiles := []string{}
 	for _, file := range entries {
 		if _, found := strings.CutSuffix(file, ".md"); !found {
 			continue
@@ -51,15 +48,14 @@ func FirstSync(mdDir string, db *sql.DB, rndrConf *render.RenderConfig) error {
 			return err
 		}
 		same, err := compareChecksum(db, file, checksum)
-		if errors.Is(err, ErrDidntExist) {
-			appendChecksum(db, file, checksum)
-			prefixCut, _ := strings.CutPrefix(file, mdDirAbs)
-			extensionSanitized, _ := strings.CutSuffix(prefixCut, ".md")
-			err = render.SaveMdtoHTML(file, filepath.Join(paths.AssetsPath, "pages", extensionSanitized), rndrConf, db)
-			if err != nil {
-				return err
-			}
-		} else if err != nil {
+		if err != nil {
+			return err
+		}
+		appendChecksum(db, file, checksum)
+		prefixCut, _ := strings.CutPrefix(file, mdDirAbs)
+		extensionSanitized, _ := strings.CutSuffix(prefixCut, ".md")
+		err = render.SaveMdtoHTML(file, filepath.Join(paths.AssetsPath, "pages", extensionSanitized), rndrConf, db)
+		if err != nil {
 			return err
 		}
 		if !same {
@@ -74,9 +70,9 @@ func FirstSync(mdDir string, db *sql.DB, rndrConf *render.RenderConfig) error {
 				return err
 			}
 		}
-		fullpaths = append(fullpaths, file)
+		existingFiles = append(existingFiles, file)
 	}
-	err = purgeNonExistent(db, fullpaths, mdDirAbs)
+	err = purgeOrphans(db, existingFiles, mdDirAbs)
 	if err != nil {
 		return err
 	}

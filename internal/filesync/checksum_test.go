@@ -49,8 +49,8 @@ func TestAppendChecksum(t *testing.T) {
 		wantErr  bool
 	}{
 		{"empty path should fail", "", "", true},
-		{"valid one should pass", "yippe", "autism", false},
-		{"checksum updating should pass", "yippe", "", false},
+		{"valid one should pass", "yippe.md", "autism", false},
+		{"checksum updating should pass", "yippe.md", "", false},
 	}
 	db := mockDB(t)
 	var gotError bool
@@ -80,8 +80,8 @@ func TestCompareChecksum(t *testing.T) {
 		wantErr        bool
 		shouldEqual    bool
 	}{
-		{"non-matching checksums should return false and pass", "yippe", "salsa", "noSalsa", false, false},
-		{"matching checksums should return true pass", "turkishChars", "şılömüç", "şılömüç", false, true},
+		{"non-matching checksums should return false and pass", "yippe.md", "salsa", "noSalsa", false, false},
+		{"matching checksums should return true pass", "turkishChars.md", "şılömüç", "şılömüç", false, true},
 	}
 	db := mockDB(t)
 	var gotErr bool
@@ -117,8 +117,8 @@ func TestDeleteChecksum(t *testing.T) {
 		deletePath string
 		wantErr    bool
 	}{
-		{"deleting existing path should pass", "yippe", "yippe", false},
-		{"deleting non existing path should fail", "created", "deleted", true},
+		{"deleting existing path should pass", "yippe.md", "yippe.md", false},
+		{"deleting non existing path should fail", "created.md", "deleted.md", true},
 	}
 	db := mockDB(t)
 	var gotErr bool
