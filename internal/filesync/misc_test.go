@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -73,7 +74,7 @@ func TestPurgeOrphanDbEntries(t *testing.T) {
 			}
 			gotErr := false
 			errText := ""
-			err := purgeOrphans(db, tt.existingFiles, mdDir)
+			err, _ := purgeOrphanedChecksums(db, tt.existingFiles, mdDir)
 			if err != nil {
 				gotErr = true
 				errText = err.Error()
@@ -103,6 +104,101 @@ func TestPurgeOrphanDbEntries(t *testing.T) {
 					fmt.Printf(`In DB: %v 
 			Existing Files: %v \n`, mdDirFilesInDB, tt.existingFiles)
 					t.Errorf("DB entry %v is an orphan even after the orphans were purged.", inDB)
+				}
+			}
+		})
+	}
+}
+
+func TestPurgeOrphanHTML(t *testing.T) {
+	tests := []struct {
+		name            string
+		mdFiles         []string
+		htmlFiles       []string
+		wantedHtmlFiles []string
+		wantErr         bool
+	}{
+		{"2 md | 4 html", []string{"a.md", "b.md"}, []string{"a.html", "b.html", "c.html", "d.html"}, []string{"a.html", "b.html"}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db := mockDB(t)
+			temp := t.TempDir()
+			mdDir := filepath.Join(temp, "mdDir")
+			pages := filepath.Join(temp, "pages")
+			err := os.Mkdir(mdDir, 0o777)
+			if err != nil {
+				t.Error("Could not create mdDir. " + err.Error())
+			}
+			err = os.Mkdir(pages, 0o777)
+			if err != nil {
+				t.Error("Could not create pages directory. " + err.Error())
+			}
+			absMdFiles := []string{}
+			for _, md := range tt.mdFiles {
+				md = filepath.Join(mdDir, md)
+				absMdFiles = append(absMdFiles, md)
+				dir := filepath.Dir(md)
+				err = os.MkdirAll(dir, 0o777)
+				if err != nil {
+					t.Error("MkdirAll failed. " + err.Error())
+				}
+				err = os.WriteFile(md, []byte{}, 0o666)
+				if err != nil {
+					t.Error("WriteFile failed. " + err.Error())
+				}
+				fmt.Println(md)
+			}
+			for _, page := range tt.htmlFiles {
+				page = filepath.Join(pages, page)
+				dir := filepath.Dir(page)
+				err = os.MkdirAll(dir, 0o666)
+				if err != nil {
+					t.Error("MkdirAll failed. " + err.Error())
+				}
+				err = os.WriteFile(page, []byte{}, 0o666)
+				if err != nil {
+					t.Error("WriteFile failed. " + err.Error())
+				}
+				fmt.Println(page)
+			}
+			err, set := purgeOrphanedChecksums(db, absMdFiles, mdDir)
+			if err != nil {
+				t.Error("purgeOrphanedChecksums failed. " + err.Error())
+			}
+			fmt.Println(set)
+			gotErr := false
+			errText := ""
+			err = purgeOrphanedHTMLs(pages, mdDir, set, db)
+			if err != nil {
+				gotErr = true
+				errText = err.Error()
+			}
+			l, _ := os.ReadDir(pages)
+			for _, a := range l {
+				fmt.Println(a.Name())
+			}
+			if gotErr != tt.wantErr {
+				t.Errorf("gotErr: %v wantErr: %v errText: %v", gotErr, tt.wantErr, errText)
+			}
+			gotFiles := []string{}
+			filepath.WalkDir(pages, func(path string, d fs.DirEntry, err error) error {
+				if d.IsDir() {
+					return nil
+				}
+				rel, erro := filepath.Rel(pages, path)
+				if erro != nil {
+					t.Error("filepath.Rel failed. " + err.Error())
+				}
+				gotFiles = append(gotFiles, rel)
+				return nil
+			})
+			if len(tt.wantedHtmlFiles) != len(gotFiles) {
+				t.Errorf("Wanted files: %v \n Gotten files: %v", tt.wantedHtmlFiles, gotFiles)
+			}
+			for _, wanted := range tt.wantedHtmlFiles {
+				if !slices.Contains(gotFiles, wanted) {
+					t.Errorf("%v not found. /n Wanted files: %v /n Gotten files: %v", wanted, tt.wantedHtmlFiles, gotFiles)
 				}
 			}
 		})

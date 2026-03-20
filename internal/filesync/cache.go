@@ -32,8 +32,8 @@ func AppendToCache(path string) ([]byte, error) {
 	}
 	mutexCache.Lock()
 	pageCache[path] = data
-	mutexCache.Unlock()
 	pageList = append(pageList, path)
+	mutexCache.Unlock()
 	purgeCache()
 	return data, nil
 }

@@ -41,10 +41,23 @@ func deleteHTML(path string) error {
 	return err
 }
 
-// Func purgeOrphans first purges orphaned checksum entries, then orphaned pages in assets/pages and finally orphaned pages entries in DB.
-func purgeOrphans(db *sql.DB, fileNames []string, mdDir string) error {
+func purgeOrphans(db *sql.DB, existingFiles []string, mdDir string) error {
+	err, set := purgeOrphanedChecksums(db, existingFiles, mdDir)
+	if err != nil {
+		return err
+	}
+	pagesDir := filepath.Join(paths.AssetsPath, "pages")
+	err = purgeOrphanedHTMLs(pagesDir, mdDir, set, db)
+	if err != nil {
+		return err
+	}
+	return purgeOrphanPages(mdDir, db)
+}
+
+// Func purgeOrphanedChecksums purges orphaned checksum entries
+func purgeOrphanedChecksums(db *sql.DB, fileNames []string, mdDir string) (error, *map[string]struct{}) {
 	if mdDir == "" {
-		return fmt.Errorf("mdDir cannot be empty")
+		return fmt.Errorf("mdDir cannot be empty"), nil
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -58,7 +71,7 @@ func purgeOrphans(db *sql.DB, fileNames []string, mdDir string) error {
 	// 1. Purge deleted files from the Database
 	rows, err := db.QueryContext(ctx, "SELECT filename FROM checksums")
 	if err != nil {
-		return err
+		return err, nil
 	}
 
 	var file string
@@ -66,7 +79,7 @@ func purgeOrphans(db *sql.DB, fileNames []string, mdDir string) error {
 	for rows.Next() {
 		if err := rows.Scan(&file); err != nil {
 			rows.Close()
-			return err
+			return err, nil
 		}
 		// O(1) lookup
 		if _, ok := set[file]; !ok {
@@ -76,36 +89,30 @@ func purgeOrphans(db *sql.DB, fileNames []string, mdDir string) error {
 	rows.Close() // Explicitly close rows before executing delete queries
 
 	if err := rows.Err(); err != nil {
-		return err
+		return err, nil
 	}
 
 	for _, file := range toDelete {
 		if err := deleteChecksum(db, file); err != nil {
-			return err
+			return err, nil
 		}
 		mdDirAbs, err := filepath.Abs(mdDir)
 		if err != nil {
-			return err
+			return err, nil
 		}
 		filename, _ := strings.CutPrefix(file, mdDirAbs)
 		filename, _ = strings.CutSuffix(filename, ".md")
 		if err = deleteFromPages(filename, db); err != nil {
-			return err
+			return err, nil
 		}
 	}
 
 	// 2. Purge orphaned HTML files from assets/pages/
-	pagesDir := filepath.Join(paths.AssetsPath, "pages")
-	err = purgeOrphanedHTMLs(pagesDir, mdDir, set, db)
-	if err != nil {
-		return err
-	}
-	err = purgeOrphanPages(mdDir, db)
 
-	return err
+	return err, &set
 }
 
-func purgeOrphanedHTMLs(pagesDir, mdDir string, set map[string]struct{}, db *sql.DB) error {
+func purgeOrphanedHTMLs(pagesDir, mdDir string, set *map[string]struct{}, db *sql.DB) error {
 	err := filepath.WalkDir(pagesDir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -126,7 +133,7 @@ func purgeOrphanedHTMLs(pagesDir, mdDir string, set map[string]struct{}, db *sql
 			expectedMdPath := filepath.Join(mdDir, mdRelPath)
 
 			// If the expected .md file is not in our active set, this HTML file is orphaned
-			if _, ok := set[expectedMdPath]; !ok {
+			if _, ok := (*set)[expectedMdPath]; !ok {
 				if err := os.Remove(path); err != nil {
 					return err
 				}
