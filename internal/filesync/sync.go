@@ -79,9 +79,6 @@ func FirstSync(mdDir string, db *sql.DB, rndrConf *render.RenderConfig) error {
 	return nil
 }
 
-// TODO: Don't use FirstSync in Sync, use custom written stuff instead. Don't add overhead.
-
-// Sync implements a filewatcher to the mdDir.
 func Sync(ctx context.Context, db *sql.DB, mdDir string, logger *slog.Logger, rndrConf *render.RenderConfig) error {
 	watcher, err := fswatcher.New(fswatcher.WithPath(mdDir), fswatcher.WithSeverity(fswatcher.SeverityInfo))
 	if err != nil {
@@ -113,13 +110,13 @@ func Sync(ctx context.Context, db *sql.DB, mdDir string, logger *slog.Logger, rn
 	go watcher.Watch(ctx)
 	for event := range watcher.Events() {
 		types := event.Types
-		if err != nil {
-			logger.Error(err.Error())
-			continue
-		}
 		path := event.Path
 		prefixCut, _ := strings.CutPrefix(path, absMdDir)
-		if slices.Contains(types, fswatcher.EventRemove) {
+
+		// Handle deletions and original paths of renames
+		if slices.Contains(types, fswatcher.EventRemove) ||
+			(slices.Contains(types, fswatcher.EventRename) && !(slices.Contains(types, fswatcher.EventCreate) || slices.Contains(types, fswatcher.EventMod))) {
+
 			if _, found := strings.CutSuffix(path, ".md"); !found {
 				if !slices.Contains(dirs, path) {
 					continue
@@ -135,6 +132,7 @@ func Sync(ctx context.Context, db *sql.DB, mdDir string, logger *slog.Logger, rn
 				}
 				continue
 			}
+
 			suffixCut, _ := strings.CutSuffix(path, ".md")
 			extensionSanitized, _ := strings.CutPrefix(suffixCut, absMdDir)
 			err = deleteHTML(filepath.Join(paths.AssetsPath, "pages", extensionSanitized+".html"))
@@ -142,86 +140,82 @@ func Sync(ctx context.Context, db *sql.DB, mdDir string, logger *slog.Logger, rn
 				logger.Error("Couldn't delete HTML file!", "error", err.Error())
 			}
 			deleteFromCache(filepath.Join(paths.AssetsPath, "pages", extensionSanitized+".html"))
-			if err = deleteFromPages(prefixCut, db); err != nil {
+
+			// Use prefixCut for EventRemove and extensionSanitized for EventRename as per your original logic
+			deleteTerm := prefixCut
+			if slices.Contains(types, fswatcher.EventRename) {
+				deleteTerm = extensionSanitized
+			}
+
+			if err = deleteFromPages(deleteTerm, db); err != nil {
 				logger.Error("Couldn't delete orphaned page from 'pages' table!", "error", err.Error())
 			}
+
 			pages, err := render.GetPages(25, db)
 			if err != nil {
 				logger.Error("Couldn't get pages!", "error", err.Error())
 			}
 
-			err = render.RenderHome(&render.HomeDataStruct{rndrConf.SiteName, "", "", rndrConf.SiteName, time.Now().Year(), pages, rndrConf.LogoPath, rndrConf.FaviconPath})
+			err = render.RenderHome(&render.HomeDataStruct{
+				SiteName:    rndrConf.SiteName,
+				Year:        time.Now().Year(),
+				Pages:       pages,
+				LogoPath:    rndrConf.LogoPath,
+				FaviconPath: rndrConf.FaviconPath,
+			})
 			if err != nil {
 				logger.Error("Couldn't render home after markdown deletion.", "error", err.Error())
 			}
 		}
-		// Could apply De Morgen, but short circutting gets removed.
-		if slices.Contains(types, fswatcher.EventRename) && !(slices.Contains(types, fswatcher.EventCreate) || slices.Contains(types, fswatcher.EventMod)) {
 
-			if _, found := strings.CutSuffix(path, ".md"); !found {
-				if !slices.Contains(dirs, path) {
-					continue
-				}
-				prefixCut, _ := strings.CutPrefix(path, absMdDir)
-				targetDir := filepath.Join(paths.AssetsPath, "pages", prefixCut)
-				if err := os.RemoveAll(targetDir); err != nil {
-					logger.Error("Error while deleting directory recursively.", "error", err.Error())
-				} else {
-					err = FirstSync(mdDir, db, rndrConf)
-					if err != nil {
-						logger.Error("Sync->FirstSync error.", "error", err.Error())
-					}
-				}
-				continue
-			}
-			suffixCut, _ := strings.CutSuffix(path, ".md")
-			extensionSanitized, _ := strings.CutPrefix(suffixCut, absMdDir)
-			err = deleteHTML(filepath.Join(paths.AssetsPath, "pages", extensionSanitized+".html"))
-			if err != nil {
-				logger.Error("Couldn't delete HTML file!", "error", err.Error())
-			}
-			deleteFromCache(filepath.Join(paths.AssetsPath, "pages", extensionSanitized+".html"))
-			if err = deleteFromPages(extensionSanitized, db); err != nil {
-				return err
-			}
-			// my brain is fried, this should work tho for now.
-			err = FirstSync(mdDir, db, rndrConf)
-			if err != nil {
-				logger.Error("Sync->FirstSync error.", "error", err.Error())
-			}
-		}
-
+		// Handle new files/directories and modifications
 		if slices.Contains(types, fswatcher.EventCreate) || slices.Contains(types, fswatcher.EventMod) {
 			st, err := os.Stat(path)
 			if err != nil {
-				logger.Error("Couldn't get os.Stat!", "error", err.Error())
+				if !os.IsNotExist(err) {
+					logger.Error("Couldn't get os.Stat!", "error", err.Error())
+				}
 				continue
 			}
 			if _, found := strings.CutSuffix(path, ".md"); !found {
 				if st.IsDir() {
 					if !slices.Contains(dirs, path) {
-						if slices.Contains(types, fswatcher.EventRename) {
+						if slices.Contains(types, fswatcher.EventRename) || slices.Contains(types, fswatcher.EventCreate) {
 							watcher.AddPath(path)
 						}
 						dirs = append(dirs, path)
 						extensionSanitized, _ := strings.CutPrefix(path, absMdDir)
-						err = os.Mkdir(filepath.Join(paths.AssetsPath, "pages", extensionSanitized), 0o755)
+						err = os.MkdirAll(filepath.Join(paths.AssetsPath, "pages", extensionSanitized), 0o755)
 						if err != nil {
 							logger.Error("Mkdir failed", "error", err.Error())
 						}
-						err = FirstSync(mdDir, db, rndrConf)
-						if err != nil {
-							logger.Error("Sync->FirstSync error.", "error", err.Error())
-						}
+
+						// Walk only the newly created directory instead of calling FirstSync on everything
+						filepath.WalkDir(path, func(walkPath string, d os.DirEntry, err error) error {
+							if err != nil || d.IsDir() {
+								return nil
+							}
+							if strings.HasSuffix(walkPath, ".md") {
+								checksum, _ := checksumCalculate(walkPath)
+								appendChecksum(db, walkPath, checksum)
+								prefixCutWalk, _ := strings.CutPrefix(walkPath, absMdDir)
+								extSanitizedWalk, _ := strings.CutSuffix(prefixCutWalk, ".md")
+								render.SaveMdtoHTML(walkPath, filepath.Join(paths.AssetsPath, "pages", extSanitizedWalk), rndrConf, db)
+							}
+							return nil
+						})
 					}
 				}
 				continue
 			}
 
 			if st.IsDir() {
-				dirs = append(dirs, path)
+				if !slices.Contains(dirs, path) {
+					dirs = append(dirs, path)
+				}
 				continue
 			}
+
 			checksum, err := checksumCalculate(path)
 			if err != nil {
 				logger.Error("Couldn't calculate checksum!", "error", err.Error())
