@@ -84,6 +84,10 @@ func Sync(ctx context.Context, db *sql.DB, mdDir string, logger *slog.Logger, rn
 	if err != nil {
 		return err
 	}
+	return processSync(ctx, watcher, db, mdDir, logger, rndrConf)
+}
+
+func processSync(ctx context.Context, watcher fswatcher.Watcher, db *sql.DB, mdDir string, logger *slog.Logger, rndrConf *render.RenderConfig) error {
 	defer watcher.Close()
 	var dirs []string
 	absMdDir, err := filepath.Abs(mdDir)
