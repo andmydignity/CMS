@@ -3,6 +3,7 @@ package server
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -20,8 +21,9 @@ import (
 )
 
 type CmsConfig struct {
-	Port      int
-	RateLimit struct {
+	Port            int
+	CardsInHomePage int
+	RateLimit       struct {
 		Rps   float64
 		Burst int
 	}
@@ -39,6 +41,7 @@ type CmsConfig struct {
 type CmsStruct struct {
 	Logger *slog.Logger
 	Config *CmsConfig
+	DB     *sql.DB
 }
 
 func (cms *CmsStruct) Start() error {
@@ -51,20 +54,17 @@ func (cms *CmsStruct) Start() error {
 		ErrorLog:     slog.NewLogLogger(cms.Logger.Handler(), slog.LevelError),
 	}
 	shutdownErr := make(chan error)
-	checksumDB, err := filesync.OpenDB("database.db")
-	if err != nil {
-		cms.Logger.Error("Couldn't open checksum database.")
-	}
-	defer checksumDB.Close()
+
+	defer cms.DB.Close()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	pages, err := render.GetPages(25, checksumDB)
+	pages, err := render.GetPages(25, cms.DB)
 	if err != nil {
 		return err
 	}
-	rdr := &render.RenderConfig{cms.Config.SiteName, cms.Config.LogoPath, cms.Config.FaviconPath}
+	rdr := &render.RenderConfig{cms.Config.SiteName, cms.Config.LogoPath, cms.Config.FaviconPath, cms.Config.CardsInHomePage}
 	homeRdr := &render.HomeDataStruct{cms.Config.SiteName, "", "", cms.Config.SiteName, time.Now().Year(), pages, cms.Config.LogoPath, cms.Config.FaviconPath}
-	err = filesync.FirstSync(cms.Config.MDDir, checksumDB, rdr)
+	err = filesync.FirstSync(cms.Config.MDDir, cms.DB, rdr)
 	if err != nil {
 		return err
 	}
@@ -72,7 +72,7 @@ func (cms *CmsStruct) Start() error {
 	if err != nil {
 		return err
 	}
-	go filesync.Sync(ctx, checksumDB, cms.Config.MDDir, cms.Logger, rdr)
+	go filesync.Sync(ctx, cms.DB, cms.Config.MDDir, cms.Logger, rdr)
 	go func() {
 		quit := make(chan os.Signal, 1)
 		signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT)
@@ -82,7 +82,7 @@ func (cms *CmsStruct) Start() error {
 		ctx, cancel2 := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel2()
 		shutdownErr <- srv.Shutdown(ctx)
-		checksumDB.Close()
+		cms.DB.Close()
 	}()
 
 	cms.Logger.Info(fmt.Sprintf("Starting server at port %d", cms.Config.Port))

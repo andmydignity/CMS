@@ -21,9 +21,10 @@ type PageInfo struct {
 }
 
 type RenderConfig struct {
-	SiteName    string
-	LogoPath    string
-	FaviconPath string
+	SiteName        string
+	LogoPath        string
+	FaviconPath     string
+	CardsInHomePage int
 }
 
 func loadFromFile(path string) ([]byte, error) {

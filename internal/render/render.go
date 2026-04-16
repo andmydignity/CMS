@@ -51,6 +51,8 @@ type HomeDataStruct struct {
 	FaviconPath string
 }
 
+var HomePageCache []byte
+
 func SaveMdtoHTML(loadFrom, saveTo string, rndrConf *RenderConfig, db *sql.DB) error {
 	page, title, err := parseMdToHTML(loadFrom)
 	if err != nil {
@@ -108,7 +110,7 @@ func SaveMdtoHTML(loadFrom, saveTo string, rndrConf *RenderConfig, db *sql.DB) e
 	if err != nil {
 		return err
 	}
-	pages, err := GetPages(25, db)
+	pages, err := GetPages(rndrConf.CardsInHomePage, db)
 	if err != nil {
 		return err
 	}
@@ -133,5 +135,6 @@ func RenderHome(conf *HomeDataStruct) error {
 	if err != nil {
 		return err
 	}
+	HomePageCache = home
 	return saveToFile(home, filepath.Join(paths.AssetsPath, "homePage", "home.html"))
 }

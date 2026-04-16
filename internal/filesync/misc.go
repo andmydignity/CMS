@@ -18,20 +18,6 @@ import (
 var ErrDidntExist = errors.New("didn't exist in the first place")
 
 // dbName= name of the db INSIDE db folder, not the path
-func OpenDB(dbName string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite", filepath.Join(paths.DBPath, dbName))
-	if err != nil {
-		return nil, err
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	_, err = db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS checksums (filename TEXT PRIMARY KEY CHECK (filename LIKE '%.md'),hash TEXT NOT NULL)`)
-	if err != nil {
-		return nil, err
-	}
-	_, err = db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS pages (url TEXT PRIMARY KEY,title TEXT NOT NULL, overview TEXT, overviewImg TEXT ,modifiedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP )`)
-	return db, err
-}
 
 func deleteHTML(path string) error {
 	err := os.Remove(path)

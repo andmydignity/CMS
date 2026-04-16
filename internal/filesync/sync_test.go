@@ -52,7 +52,7 @@ func TestFirstSync(t *testing.T) {
 				os.MkdirAll(filepath.Dir(filepath.Join(mdDir, file)), 0o777)
 				os.Create(filepath.Join(mdDir, file))
 			}
-			rdrconf := render.RenderConfig{"Test", "", ""}
+			rdrconf := render.RenderConfig{"Test", "", "", 25}
 			err = FirstSync(mdDir, db, &rdrconf)
 
 			if (err != nil && test.wantErr == false) || (err == nil && test.wantErr == true) {

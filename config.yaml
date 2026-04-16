@@ -1,4 +1,5 @@
 port: 8080
+cardsInHome: 25
 certPath: ""
 keyPath: ""
 mdPath: "mdFiles"
