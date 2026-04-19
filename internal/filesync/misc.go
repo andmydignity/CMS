@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	paths "cms/internal"
+	"cms/internal/globals"
 
 	_ "modernc.org/sqlite"
 )
@@ -32,7 +32,7 @@ func purgeOrphans(db *sql.DB, existingFiles []string, mdDir string) error {
 	if err != nil {
 		return err
 	}
-	pagesDir := filepath.Join(paths.AssetsPath, "pages")
+	pagesDir := filepath.Join(globals.AssetsPath, "pages")
 	err = purgeOrphanedHTMLs(pagesDir, mdDir, set, db)
 	if err != nil {
 		return err

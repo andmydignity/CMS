@@ -2,12 +2,16 @@ package render
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"database/sql"
+	"html/template"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"cms/internal/globals"
 
 	"golang.org/x/net/html"
 )
@@ -128,4 +132,38 @@ func GetPages(numberOf int, db *sql.DB) ([]PageInfo, error) {
 		pages = append(pages, page)
 	}
 	return pages, nil
+}
+
+func gzipData(data []byte) (result []byte, err error) {
+	var b bytes.Buffer
+	gz, err := gzip.NewWriterLevel(&b, gzip.BestCompression)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := gz.Write(data); err != nil {
+		return nil, err
+	}
+
+	// It's critical to Close() to flush the gzip footer
+	if err := gz.Close(); err != nil {
+		return nil, err
+	}
+
+	return b.Bytes(), nil
+}
+
+func getCommonTemplates(ts *template.Template) error {
+	entries, err := os.ReadDir(filepath.Join(globals.AssetsPath, "commonTemplates"))
+	if err != nil {
+		return err
+	}
+	templates := []string{}
+	for _, e := range entries {
+		_, has := strings.CutSuffix(e.Name(), ".tmpl")
+		if has && !e.IsDir() {
+			templates = append(templates, filepath.Join(globals.AssetsPath, "commonTemplates", e.Name()))
+		}
+	}
+	_, err = ts.ParseFiles(templates...)
+	return err
 }

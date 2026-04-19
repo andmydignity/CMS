@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
-	paths "cms/internal"
+	"cms/internal/globals"
 	"cms/internal/server"
 
 	"gopkg.in/yaml.v2"
@@ -33,12 +33,20 @@ type config struct {
 }
 
 func OpenDB(dbName string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite", filepath.Join(paths.DBPath, dbName))
+	db, err := sql.Open("sqlite", filepath.Join(globals.DBPath, dbName))
 	if err != nil {
 		return nil, err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	if _, err := db.ExecContext(ctx, "PRAGMA journal_mode=WAL;"); err != nil {
+		return nil, err
+	}
+	if _, err := db.ExecContext(ctx, "PRAGMA synchronous=NORMAL;"); err != nil {
+		return nil, err
+	}
+	db.SetMaxOpenConns(100)
+	db.SetMaxIdleConns(10)
 	_, err = db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS checksums (filename TEXT PRIMARY KEY CHECK (filename LIKE '%.md'),hash TEXT NOT NULL)`)
 	if err != nil {
 		return nil, err
@@ -48,7 +56,7 @@ func OpenDB(dbName string) (*sql.DB, error) {
 }
 
 func main() {
-	paths.SetPaths()
+	globals.SetPaths()
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	db, err := OpenDB("database.db")
@@ -56,7 +64,7 @@ func main() {
 		logger.Error("Couldn't open DB! Error:" + err.Error())
 		os.Exit(3)
 	}
-	file, err := os.Open(filepath.Join(paths.BinaryPath, "config.yaml"))
+	file, err := os.Open(filepath.Join(globals.BinaryPath, "config.yaml"))
 	if err != nil {
 		logger.Error("Couldn't access config.yaml file!", "error", err.Error())
 		os.Exit(2)

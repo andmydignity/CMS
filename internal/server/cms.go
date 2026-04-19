@@ -13,8 +13,8 @@ import (
 	"syscall"
 	"time"
 
-	paths "cms/internal"
 	"cms/internal/filesync"
+	"cms/internal/globals"
 	"cms/internal/render"
 
 	"github.com/caddyserver/certmagic"
@@ -58,17 +58,13 @@ func (cms *CmsStruct) Start() error {
 	defer cms.DB.Close()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	pages, err := render.GetPages(25, cms.DB)
-	if err != nil {
-		return err
-	}
+
 	rdr := &render.RenderConfig{cms.Config.SiteName, cms.Config.LogoPath, cms.Config.FaviconPath, cms.Config.CardsInHomePage}
-	homeRdr := &render.HomeDataStruct{cms.Config.SiteName, "", "", cms.Config.SiteName, time.Now().Year(), pages, cms.Config.LogoPath, cms.Config.FaviconPath}
-	err = filesync.FirstSync(cms.Config.MDDir, cms.DB, rdr)
+	err := filesync.FirstSync(cms.Config.MDDir, cms.DB, rdr)
 	if err != nil {
 		return err
 	}
-	err = render.RenderHome(homeRdr)
+	err = render.RenderSpecials(&render.DataStruct{rdr.SiteName, "", "", "", rdr.SiteName, time.Now().Year(), rdr.FaviconPath, rdr.LogoPath}, rdr.CardsInHomePage, cms.DB)
 	if err != nil {
 		return err
 	}
@@ -103,8 +99,8 @@ func (cms *CmsStruct) Start() error {
 				cms.Logger.Error("Error whilst generating self-signed certs", "error", err.Error())
 				os.Exit(2)
 			}
-			cms.Config.CertFile = filepath.Join(paths.CertsPath, "selfsigned.pem")
-			cms.Config.KeyFile = filepath.Join(paths.CertsPath, "selfsigned-key.pem")
+			cms.Config.CertFile = filepath.Join(globals.CertsPath, "selfsigned.pem")
+			cms.Config.KeyFile = filepath.Join(globals.CertsPath, "selfsigned-key.pem")
 		} else {
 			_, doesKeyexist := os.Stat(cms.Config.KeyFile)
 			_, doesCertExist := os.Stat(cms.Config.CertFile)
@@ -115,8 +111,8 @@ func (cms *CmsStruct) Start() error {
 					cms.Logger.Error("Error whilst generating self-signed certs", "error", err.Error())
 					os.Exit(2)
 				}
-				cms.Config.CertFile = filepath.Join(paths.CertsPath, "selfsigned.pem")
-				cms.Config.KeyFile = filepath.Join(paths.CertsPath, "selfsigned-key.pem")
+				cms.Config.CertFile = filepath.Join(globals.CertsPath, "selfsigned.pem")
+				cms.Config.KeyFile = filepath.Join(globals.CertsPath, "selfsigned-key.pem")
 			}
 		}
 		return srv.ListenAndServeTLS(cms.Config.CertFile, cms.Config.KeyFile)

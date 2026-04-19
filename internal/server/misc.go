@@ -14,7 +14,12 @@ import (
 	"path/filepath"
 	"time"
 
-	paths "cms/internal"
+	"cms/internal/globals"
+)
+
+var (
+	HomePageCache   []byte
+	SearchPageCache []byte
 )
 
 func writePEM(path string, data []byte, perm os.FileMode) error {
@@ -121,8 +126,8 @@ func certSetup() (serverTLSConf *tls.Config, clientTLSConf *tls.Config, err erro
 	clientTLSConf = &tls.Config{
 		RootCAs: certpool,
 	}
-	writePEM(filepath.Join(paths.CertsPath, "selfsigned.pem"), certPEM.Bytes(), 0o644)
-	writePEM(filepath.Join(paths.CertsPath, "selfsigned-key.pem"), certPrivKeyPEM.Bytes(), 0o600)
+	writePEM(filepath.Join(globals.CertsPath, "selfsigned.pem"), certPEM.Bytes(), 0o644)
+	writePEM(filepath.Join(globals.CertsPath, "selfsigned-key.pem"), certPrivKeyPEM.Bytes(), 0o600)
 
 	return
 }

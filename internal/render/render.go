@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	paths "cms/internal"
+	"cms/internal/globals"
 )
 
 // assets/templates
@@ -21,6 +21,7 @@ func RenderTemplates(base string, data any, tmpls []string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	getCommonTemplates(tmpl)
 	var buffer bytes.Buffer
 	err = tmpl.ExecuteTemplate(&buffer, base, data)
 	if err != nil {
@@ -29,45 +30,32 @@ func RenderTemplates(base string, data any, tmpls []string) ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-type dataStruct struct {
+type DataStruct struct {
 	Title       string
+	Style       string
+	Script      string
 	Content     template.HTML
-	Style       string
-	Script      string
 	SiteName    string
 	Year        int
 	FaviconPath string
 	LogoPath    string
 }
 
-type HomeDataStruct struct {
-	Title       string
-	Style       string
-	Script      string
-	SiteName    string
-	Year        int
-	Pages       []PageInfo
-	LogoPath    string
-	FaviconPath string
-}
-
-var HomePageCache []byte
-
-func SaveMdtoHTML(loadFrom, saveTo string, rndrConf *RenderConfig, db *sql.DB) error {
+func RenderNSave(loadFrom, saveTo string, rndrConf *RenderConfig, db *sql.DB) error {
 	page, title, err := parseMdToHTML(loadFrom)
 	if err != nil {
 		return err
 	}
 	overviewText := getOverviewText(117, page) + "..."
 	overviewImg := overviewIMG(page)
-	rel, err := filepath.Rel(filepath.Join(paths.AssetsPath, "pages"), saveTo)
+	rel, err := filepath.Rel(filepath.Join(globals.AssetsPath, "pages"), saveTo)
 	if err != nil {
 		return err
 	}
 	url, _ := strings.CutSuffix(rel, ".html")
 	url = "/pages/" + url
 	fileName, _ := strings.CutSuffix(filepath.Base(loadFrom), ".md")
-	entries, err := os.ReadDir(filepath.Join(paths.AssetsPath, "templates"))
+	entries, err := os.ReadDir(filepath.Join(globals.AssetsPath, "templates"))
 	if err != nil {
 		return err
 	}
@@ -75,30 +63,34 @@ func SaveMdtoHTML(loadFrom, saveTo string, rndrConf *RenderConfig, db *sql.DB) e
 	for _, e := range entries {
 		_, has := strings.CutSuffix(e.Name(), ".tmpl")
 		if has && !e.IsDir() {
-			templates = append(templates, filepath.Join(paths.AssetsPath, "templates", e.Name()))
+			templates = append(templates, filepath.Join(globals.AssetsPath, "templates", e.Name()))
 		}
 	}
-	_, err = os.Stat(filepath.Join(paths.AssetsPath, "sytle", fmt.Sprintf("%v.css", fileName)))
+	_, err = os.Stat(filepath.Join(globals.AssetsPath, "sytle", fmt.Sprintf("%v.css", fileName)))
 	customCSS := ""
 	if err == nil {
 		customCSS = fileName
 	}
-	_, err = os.Stat(filepath.Join(paths.AssetsPath, "sytle", fmt.Sprintf("%v.js", fileName)))
+	_, err = os.Stat(filepath.Join(globals.AssetsPath, "sytle", fmt.Sprintf("%v.js", fileName)))
 	customJS := ""
 	if err == nil {
 		customJS = fileName
 	}
 
-	data := dataStruct{title, template.HTML(page), customCSS, customJS, rndrConf.SiteName, time.Now().Year(), rndrConf.FaviconPath, rndrConf.LogoPath}
+	data := DataStruct{title, customCSS, customJS, template.HTML(page), rndrConf.SiteName, time.Now().Year(), rndrConf.FaviconPath, rndrConf.LogoPath}
 	// You pass base just by name, for some reason
 	full, err := RenderTemplates("base.tmpl", &data, templates[:])
 	if err != nil {
 		return err
 	}
+	zipped, err := gzipData(full)
+	if err != nil {
+		return err
+	}
 	if _, found := strings.CutSuffix(saveTo, ".html"); !found {
-		err = saveToFile(full, fmt.Sprintf("%v.html", saveTo))
+		err = saveToFile(zipped, fmt.Sprintf("%v.html", saveTo))
 	} else {
-		err = saveToFile(full, saveTo)
+		err = saveToFile(zipped, saveTo)
 	}
 	if err != nil {
 		return err
@@ -110,16 +102,34 @@ func SaveMdtoHTML(loadFrom, saveTo string, rndrConf *RenderConfig, db *sql.DB) e
 	if err != nil {
 		return err
 	}
-	pages, err := GetPages(rndrConf.CardsInHomePage, db)
+	return RenderSpecials(&data, rndrConf.CardsInHomePage, db)
+}
+
+func RenderSpecials(conf *DataStruct, card int, db *sql.DB) error {
+	err := renderHome(conf, card, db)
 	if err != nil {
 		return err
 	}
-	homeConf := HomeDataStruct{rndrConf.SiteName, fileName, fileName, rndrConf.SiteName, time.Now().Year(), pages, rndrConf.LogoPath, rndrConf.FaviconPath}
-	return RenderHome(&homeConf)
+	return renderSearch(conf, db)
 }
 
-func RenderHome(conf *HomeDataStruct) error {
-	entries, err := os.ReadDir(filepath.Join(paths.AssetsPath, "homePage", "templates"))
+func renderHome(conf *DataStruct, card int, db *sql.DB) error {
+	type homeDataStruct struct {
+		Title       string
+		Style       string
+		Script      string
+		SiteName    string
+		Year        int
+		Pages       []PageInfo
+		LogoPath    string
+		FaviconPath string
+	}
+	pages, err := GetPages(card, db)
+	if err != nil {
+		return err
+	}
+	homeData := homeDataStruct{conf.Title, conf.Style, conf.Script, conf.SiteName, time.Now().Year(), pages, conf.LogoPath, conf.FaviconPath}
+	entries, err := os.ReadDir(filepath.Join(globals.AssetsPath, "homePage"))
 	if err != nil {
 		return err
 	}
@@ -127,14 +137,61 @@ func RenderHome(conf *HomeDataStruct) error {
 	for _, e := range entries {
 		_, has := strings.CutSuffix(e.Name(), ".tmpl")
 		if has && !e.IsDir() {
-			templates = append(templates, filepath.Join(paths.AssetsPath, "homePage", "templates", e.Name()))
+			templates = append(templates, filepath.Join(globals.AssetsPath, "homePage", e.Name()))
 		}
 	}
 
-	home, err := RenderTemplates("base.tmpl", conf, templates)
+	home, err := RenderTemplates("base.tmpl", homeData, templates)
 	if err != nil {
 		return err
 	}
-	HomePageCache = home
-	return saveToFile(home, filepath.Join(paths.AssetsPath, "homePage", "home.html"))
+	zipped, err := gzipData(home)
+	if err != nil {
+		return err
+	}
+	globals.HomePageCahce = zipped
+	return saveToFile(zipped, filepath.Join(globals.AssetsPath, "homePage", "home.html"))
+}
+
+func renderSearch(conf *DataStruct, db *sql.DB) error {
+	var b bytes.Buffer
+	type searchStruct struct {
+		Title       string
+		SiteName    string
+		Year        int
+		FaviconPath string
+		LogoPath    string
+		Pages       []PageInfo
+	}
+	pages, err := GetPages(2147483647, db)
+	if err != nil {
+		return err
+	}
+	search := searchStruct{conf.Title, conf.SiteName, time.Now().Year(), conf.FaviconPath, conf.LogoPath, pages}
+	entries, err := os.ReadDir(filepath.Join(globals.AssetsPath, "searchPage"))
+	if err != nil {
+		return err
+	}
+	templates := []string{}
+	for _, e := range entries {
+		_, has := strings.CutSuffix(e.Name(), ".tmpl")
+		if has && !e.IsDir() {
+			templates = append(templates, filepath.Join(globals.AssetsPath, "searchPage", e.Name()))
+		}
+	}
+	ts, err := template.ParseFiles(templates...)
+	if err != nil {
+		return err
+	}
+	getCommonTemplates(ts)
+	err = ts.ExecuteTemplate(&b, "base.tmpl", &search)
+	if err != nil {
+		return err
+	}
+	zipped, err := gzipData(b.Bytes())
+	if err != nil {
+		return err
+	}
+	globals.SearchPageCache = zipped
+	return saveToFile(zipped, filepath.Join(globals.AssetsPath, "searchPage", "search.html"))
 }

@@ -1,12 +1,15 @@
-// Package paths sets paths (yeah gotta find a better description)
-package paths
+// Package globals sets globals (yeah gotta find a better description)
+package globals
 
 import (
 	"os"
 	"path/filepath"
 )
 
-var AssetsPath, CertsPath, DBPath, BinaryPath string
+var (
+	AssetsPath, CertsPath, DBPath, BinaryPath string
+	HomePageCahce, SearchPageCache            []byte
+)
 
 func getBinaryDir() (string, error) {
 	exPath, err := os.Executable()

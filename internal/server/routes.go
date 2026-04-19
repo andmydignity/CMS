@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"path/filepath"
 
-	paths "cms/internal"
+	"cms/internal/globals"
 
 	"github.com/julienschmidt/httprouter"
 )
@@ -14,8 +14,8 @@ func (cms *CmsStruct) routes(ratelimitMode bool) http.Handler {
 	router.GET("/", cms.homeHandler)
 	router.GET("/pages/*name", cms.pageHandler)
 	router.GET("/search", cms.searchPageHandler)
-	router.ServeFiles("/assets/style/*filepath", http.Dir(filepath.Join(paths.AssetsPath, "style")))
-	router.ServeFiles("/assets/media/*filepath", http.Dir(filepath.Join(paths.AssetsPath, "media")))
+	router.ServeFiles("/assets/style/*filepath", http.Dir(filepath.Join(globals.AssetsPath, "style")))
+	router.ServeFiles("/assets/media/*filepath", http.Dir(filepath.Join(globals.AssetsPath, "media")))
 	if !ratelimitMode {
 		return cms.uncaughtErrorMiddleware(router)
 	}
