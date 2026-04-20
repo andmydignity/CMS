@@ -92,7 +92,7 @@ func TestCompareChecksum(t *testing.T) {
 			if err != nil {
 				t.Error("appendChecksum failed.", err.Error())
 			}
-			same, err := compareChecksum(db, tt.path, tt.secondChecksum)
+			same, err := isChecksumSame(db, tt.path, tt.secondChecksum)
 			if err == nil {
 				gotErr = false
 			} else {

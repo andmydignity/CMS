@@ -118,7 +118,7 @@ func TestPurgeOrphanHTML(t *testing.T) {
 		wantedHtmlFiles []string
 		wantErr         bool
 	}{
-		{"2 md | 4 html", []string{"a.md", "b.md"}, []string{"a.html", "b.html", "c.html", "d.html"}, []string{"a.html", "b.html"}, false},
+		{"2 md | 4 html", []string{"a.md", "b.md"}, []string{"a.html.br", "b.html.br", "c.html.br", "d.html.br"}, []string{"a.html.br", "b.html.br"}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -147,7 +147,6 @@ func TestPurgeOrphanHTML(t *testing.T) {
 				if err != nil {
 					t.Error("WriteFile failed. " + err.Error())
 				}
-				fmt.Println(md)
 			}
 			for _, page := range tt.htmlFiles {
 				page = filepath.Join(pages, page)

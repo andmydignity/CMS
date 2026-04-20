@@ -9,8 +9,8 @@
   {{if .FaviconPath}}
   <link rel="icon" type="image/x-icon" href={{.FaviconPath}}>
   {{end}}
-  <link rel="stylesheet" href="/assets/style/common.css">
-  <script src="/assets/style/common.js"></script>
+  {{template "commonCSS" .}}
+  {{template "commonJS" .}}
   {{if .Style}}
   <link rel="stylesheet" href="/assets/style/{{.Style}}.css">
   {{end}}

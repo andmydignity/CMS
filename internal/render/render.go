@@ -1,4 +1,4 @@
-// Package render is about generating full html pages from templates and parsing markdown to html.
+// Package render is about generating full.html.br pages from templates and parsing markdown to html.
 package render
 
 import (
@@ -52,7 +52,7 @@ func RenderNSave(loadFrom, saveTo string, rndrConf *RenderConfig, db *sql.DB) er
 	if err != nil {
 		return err
 	}
-	url, _ := strings.CutSuffix(rel, ".html")
+	url, _ := strings.CutSuffix(rel, ".html.br")
 	url = "/pages/" + url
 	fileName, _ := strings.CutSuffix(filepath.Base(loadFrom), ".md")
 	entries, err := os.ReadDir(filepath.Join(globals.AssetsPath, "templates"))
@@ -83,12 +83,12 @@ func RenderNSave(loadFrom, saveTo string, rndrConf *RenderConfig, db *sql.DB) er
 	if err != nil {
 		return err
 	}
-	zipped, err := gzipData(full)
+	zipped, err := brotliData(full)
 	if err != nil {
 		return err
 	}
-	if _, found := strings.CutSuffix(saveTo, ".html"); !found {
-		err = saveToFile(zipped, fmt.Sprintf("%v.html", saveTo))
+	if _, found := strings.CutSuffix(saveTo, ".html.br"); !found {
+		err = saveToFile(zipped, fmt.Sprintf("%v.html.br", saveTo))
 	} else {
 		err = saveToFile(zipped, saveTo)
 	}
@@ -145,12 +145,12 @@ func renderHome(conf *DataStruct, card int, db *sql.DB) error {
 	if err != nil {
 		return err
 	}
-	zipped, err := gzipData(home)
+	zipped, err := brotliData(home)
 	if err != nil {
 		return err
 	}
 	globals.HomePageCahce = zipped
-	return saveToFile(zipped, filepath.Join(globals.AssetsPath, "homePage", "home.html"))
+	return saveToFile(zipped, filepath.Join(globals.AssetsPath, "homePage", "home.html.br"))
 }
 
 func renderSearch(conf *DataStruct, db *sql.DB) error {
@@ -188,10 +188,10 @@ func renderSearch(conf *DataStruct, db *sql.DB) error {
 	if err != nil {
 		return err
 	}
-	zipped, err := gzipData(b.Bytes())
+	zipped, err := brotliData(b.Bytes())
 	if err != nil {
 		return err
 	}
 	globals.SearchPageCache = zipped
-	return saveToFile(zipped, filepath.Join(globals.AssetsPath, "searchPage", "search.html"))
+	return saveToFile(zipped, filepath.Join(globals.AssetsPath, "searchPage", "search.html.br"))
 }

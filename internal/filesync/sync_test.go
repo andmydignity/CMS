@@ -95,8 +95,8 @@ func TestFirstSync(t *testing.T) {
 				if !slices.Contains(foundMd, filepath.Join(mdDir, file)+".md") {
 					t.Fatalf("%v not found in foundMd. foundMd: %v", filepath.Join(mdDir, file)+".md", foundMd)
 				}
-				if !slices.Contains(pagesGenerated, filepath.Join(globals.AssetsPath, "pages", file)+".html") {
-					t.Fatalf("%v not found in pagesGenerated. pagesGenerated: %v", filepath.Join(globals.AssetsPath, "pages", file)+".html", pagesGenerated)
+				if !slices.Contains(pagesGenerated, filepath.Join(globals.AssetsPath, "pages", file)+".html.br") {
+					t.Fatalf("%v not found in pagesGenerated. pagesGenerated: %v", filepath.Join(globals.AssetsPath, "pages", file)+".html.br", pagesGenerated)
 				}
 			}
 		})
@@ -206,26 +206,26 @@ func TestProcessSync_Events(t *testing.T) {
 			simulatedEvents: []fswatcher.WatchEvent{
 				{Path: "new_post.md", Types: []fswatcher.EventType{fswatcher.EventCreate}},
 			},
-			expectHTMLFiles: []string{"new_post.html"},
+			expectHTMLFiles: []string{"new_post.html.br"},
 		},
 		{
 			name:          "Delete markdown file",
-			preCreateHTML: []string{"old_post.html"},
+			preCreateHTML: []string{"old_post.html.br"},
 			simulatedEvents: []fswatcher.WatchEvent{
 				{Path: "old_post.md", Types: []fswatcher.EventType{fswatcher.EventRemove}},
 			},
-			expectDeleted: []string{"old_post.html"},
+			expectDeleted: []string{"old_post.html.br"},
 		},
 		{
 			name:          "Rename markdown file",
 			delayedFiles:  []string{"new_name.md"}, // The "new" file is created during the test
-			preCreateHTML: []string{"old_name.html"},
+			preCreateHTML: []string{"old_name.html.br"},
 			simulatedEvents: []fswatcher.WatchEvent{
 				{Path: "old_name.md", Types: []fswatcher.EventType{fswatcher.EventRename}},
 				{Path: "new_name.md", Types: []fswatcher.EventType{fswatcher.EventCreate}},
 			},
-			expectHTMLFiles: []string{"new_name.html"},
-			expectDeleted:   []string{"old_name.html"},
+			expectHTMLFiles: []string{"new_name.html.br"},
+			expectDeleted:   []string{"old_name.html.br"},
 		},
 		{
 			name: "Create folder with contents",
@@ -234,7 +234,7 @@ func TestProcessSync_Events(t *testing.T) {
 			simulatedEvents: []fswatcher.WatchEvent{
 				{Path: "my_folder", Types: []fswatcher.EventType{fswatcher.EventCreate}},
 			},
-			expectHTMLFiles: []string{filepath.Join("my_folder", "nested_post.html")},
+			expectHTMLFiles: []string{filepath.Join("my_folder", "nested_post.html.br")},
 		},
 	}
 

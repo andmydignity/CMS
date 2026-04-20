@@ -10,8 +10,8 @@
   <link rel="icon" type="image/x-icon" href={{.FaviconPath}}>
   {{end}}
 
-  <link rel="stylesheet" href="/assets/style/common.css">
-  <script src="/assets/style/common.js"></script>
+  {{template "commonCSS" .}}
+  {{template "commonJS" .}}
   <style>
     /* Search Page Layout */
     .content {

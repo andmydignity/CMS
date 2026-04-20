@@ -39,7 +39,7 @@ func appendChecksum(db *sql.DB, mdFile, checksum string) error {
 	return err
 }
 
-func compareChecksum(db *sql.DB, mdFile, checksum string) (bool, error) {
+func isChecksumSame(db *sql.DB, mdFile, checksum string) (bool, error) {
 	if mdFile == "" {
 		return false, fmt.Errorf("empty mdFile passed")
 	}

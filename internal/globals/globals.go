@@ -1,4 +1,4 @@
-// Package globals sets globals (yeah gotta find a better description)
+// Package globals contains global values (mostly constants) that i cannot be bothered to pass around 50 billion function calls like its a fucking hot potato.
 package globals
 
 import (

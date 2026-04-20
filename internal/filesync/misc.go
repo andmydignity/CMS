@@ -93,8 +93,6 @@ func purgeOrphanedChecksums(db *sql.DB, fileNames []string, mdDir string) (error
 		}
 	}
 
-	// 2. Purge orphaned HTML files from assets/pages/
-
 	return err, &set
 }
 
@@ -107,7 +105,7 @@ func purgeOrphanedHTMLs(pagesDir, mdDir string, set *map[string]struct{}, db *sq
 			return err
 		}
 
-		if !d.IsDir() && strings.HasSuffix(path, ".html") {
+		if !d.IsDir() && strings.HasSuffix(path, ".html.br") {
 			// Find the relative path of the HTML file
 			relPath, err := filepath.Rel(pagesDir, path)
 			if err != nil {
@@ -115,7 +113,7 @@ func purgeOrphanedHTMLs(pagesDir, mdDir string, set *map[string]struct{}, db *sq
 			}
 
 			// Reconstruct what the absolute path to the .md file SHOULD be
-			mdRelPath := strings.TrimSuffix(relPath, ".html") + ".md"
+			mdRelPath := strings.TrimSuffix(relPath, ".html.br") + ".md"
 			expectedMdPath := filepath.Join(mdDir, mdRelPath)
 
 			// If the expected .md file is not in our active set, this HTML file is orphaned

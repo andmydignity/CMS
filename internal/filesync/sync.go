@@ -47,14 +47,7 @@ func FirstSync(mdDir string, db *sql.DB, rndrConf *render.RenderConfig) error {
 		if err != nil {
 			return err
 		}
-		same, err := compareChecksum(db, file, checksum)
-		if err != nil {
-			return err
-		}
-		appendChecksum(db, file, checksum)
-		prefixCut, _ := strings.CutPrefix(file, mdDirAbs)
-		extensionSanitized, _ := strings.CutSuffix(prefixCut, ".md")
-		err = render.RenderNSave(file, filepath.Join(globals.AssetsPath, "pages", extensionSanitized), rndrConf, db)
+		same, err := isChecksumSame(db, file, checksum)
 		if err != nil {
 			return err
 		}
@@ -139,16 +132,16 @@ func processSync(ctx context.Context, watcher fswatcher.Watcher, db *sql.DB, mdD
 
 			suffixCut, _ := strings.CutSuffix(path, ".md")
 			extensionSanitized, _ := strings.CutPrefix(suffixCut, absMdDir)
-			err = deleteHTML(filepath.Join(globals.AssetsPath, "pages", extensionSanitized+".html"))
+			err = deleteHTML(filepath.Join(globals.AssetsPath, "pages", extensionSanitized+".html.br"))
 			if err != nil {
 				logger.Error("Couldn't delete HTML file!", "error", err.Error())
 			}
-			deleteFromCache(filepath.Join(globals.AssetsPath, "pages", extensionSanitized+".html"))
+			deleteFromCache(filepath.Join(globals.AssetsPath, "pages", extensionSanitized+".html.br"))
 			// Use prefixCut for EventRemove and extensionSanitized for EventRename as per your original logic
 			deleteTerm := prefixCut
-			if slices.Contains(types, fswatcher.EventRename) {
-				deleteTerm = extensionSanitized
-			}
+			//if slices.Contains(types, fswatcher.EventRename) {
+			//	deleteTerm = extensionSanitized
+			//}
 
 			if err = deleteFromPages(deleteTerm, db); err != nil {
 				logger.Error("Couldn't delete orphaned page from 'pages' table!", "error", err.Error())
@@ -212,6 +205,14 @@ func processSync(ctx context.Context, watcher fswatcher.Watcher, db *sql.DB, mdD
 			if err != nil {
 				logger.Error("Couldn't calculate checksum!", "error", err.Error())
 			}
+			same, err := isChecksumSame(db, path, checksum)
+			if err != nil {
+				logger.Error("Couldn't compare checksums!", "error", err.Error())
+			}
+			if same {
+				continue
+			}
+
 			err = appendChecksum(db, path, checksum)
 			if err != nil {
 				logger.Error("Couldn't append checksum!", "error", err.Error())

@@ -2,7 +2,6 @@ package render
 
 import (
 	"bytes"
-	"compress/gzip"
 	"context"
 	"database/sql"
 	"html/template"
@@ -13,6 +12,7 @@ import (
 
 	"cms/internal/globals"
 
+	"github.com/andybalholm/brotli"
 	"golang.org/x/net/html"
 )
 
@@ -134,21 +134,16 @@ func GetPages(numberOf int, db *sql.DB) ([]PageInfo, error) {
 	return pages, nil
 }
 
-func gzipData(data []byte) (result []byte, err error) {
+func brotliData(data []byte) ([]byte, error) {
 	var b bytes.Buffer
-	gz, err := gzip.NewWriterLevel(&b, gzip.BestCompression)
+	bw := brotli.NewWriterLevel(&b, brotli.BestCompression)
+	_, err := bw.Write(data)
 	if err != nil {
 		return nil, err
 	}
-	if _, err := gz.Write(data); err != nil {
+	if err = bw.Close(); err != nil {
 		return nil, err
 	}
-
-	// It's critical to Close() to flush the gzip footer
-	if err := gz.Close(); err != nil {
-		return nil, err
-	}
-
 	return b.Bytes(), nil
 }
 
