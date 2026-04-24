@@ -13,7 +13,6 @@ import (
 )
 
 func (cms *CmsStruct) homeHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	w.Header().Set("Content-Encoding", "br")
 	if len(globals.HomePageCahce) != 0 {
 		w.Write(globals.HomePageCahce)
 	} else {
@@ -27,7 +26,6 @@ func (cms *CmsStruct) homeHandler(w http.ResponseWriter, r *http.Request, ps htt
 }
 
 func (cms *CmsStruct) pageHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	w.Header().Set("Content-Encoding", "br")
 	name := strings.TrimPrefix(ps.ByName("name"), "/")
 	if name == "" {
 		cms.badRequest(w, "Page name empty.")
@@ -48,19 +46,4 @@ func (cms *CmsStruct) pageHandler(w http.ResponseWriter, r *http.Request, ps htt
 		return
 	}
 	w.Write(data)
-}
-
-func (cms *CmsStruct) searchPageHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	w.Header().Set("Content-Encoding", "br")
-	if len(globals.SearchPageCache) != 0 {
-		w.Write(globals.SearchPageCache)
-	} else {
-		search, err := os.ReadFile(filepath.Join(globals.AssetsPath, "searchPage", "search.html.br"))
-		if err != nil {
-			cms.internalError(w, err)
-			return
-		}
-		w.Write(search)
-
-	}
 }

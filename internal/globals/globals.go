@@ -8,7 +8,7 @@ import (
 
 var (
 	AssetsPath, CertsPath, DBPath, BinaryPath string
-	HomePageCahce, SearchPageCache            []byte
+	HomePageCache                             []byte
 )
 
 func getBinaryDir() (string, error) {

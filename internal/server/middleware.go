@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,6 +20,34 @@ func (cms *CmsStruct) uncaughtErrorMiddleware(next http.Handler) http.Handler {
 				cms.internalError(w, fmt.Errorf("%s", err))
 			}
 		}()
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (cms *CmsStruct) headersMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+
+		// 1. Only serve Brotli and HSTS if HTTPS is active
+		// (Assuming you have a 'UseHTTPS' bool in your CmsStruct)
+		if cms.Config.HTTPSMode {
+			if !strings.Contains(r.Header.Get("Accept-Encoding"), "br") {
+				w.WriteHeader(http.StatusNotAcceptable)
+				fmt.Fprint(w, "Brotli support required for HTTPS mode.")
+				return
+			}
+			h.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		}
+
+		// 2. Headers that are safe for both HTTP and HTTPS
+		h.Set("Content-Encoding", "br")
+		h.Set("Cache-Control", "public, max-age=3600, s-maxage=86400")
+		h.Set("Content-Type", "text/html; charset=utf-8")
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("X-Frame-Options", "DENY")
+		h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		h.Set("Vary", "Accept-Encoding")
+
 		next.ServeHTTP(w, r)
 	})
 }

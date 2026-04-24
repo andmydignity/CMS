@@ -27,12 +27,24 @@
     /* Search Bar */
     .search-bar {
       margin-top: 1.5rem;
+      position: relative;
+      width: 100%;
+      max-width: 450px;
+    }
+
+    .search-bar svg {
+      position: absolute;
+      left: 1rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      pointer-events: none;
+      flex-shrink: 0;
     }
 
     .search-bar input {
       width: 100%;
-      max-width: 450px;
-      padding: 0.75rem 1.15rem;
+      padding: 0.75rem 1.15rem 0.75rem 2.75rem;
       border: 1px solid var(--border);
       border-radius: var(--radius);
       background: var(--bg-alt);
@@ -40,6 +52,7 @@
       font-family: var(--font-serif);
       font-size: 1rem;
       transition: border-color var(--ease), box-shadow var(--ease);
+      box-sizing: border-box;
     }
 
     .search-bar input:focus {
@@ -48,26 +61,38 @@
       box-shadow: 0 0 0 3px var(--accent-dim);
     }
 
-    /* Card Grid */
+    /* Search Status & Helpers */
+    .search-status {
+      margin-top: 0;
+      margin-bottom: 1.25rem;
+      font-size: 0.875rem;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      min-height: 1.25em;
+      text-align: left;
+    }
 
+    #search-sentinel {
+      width: 100%;
+      height: 20px;
+      visibility: hidden;
+    }
+
+    /* Card Grid */
     .page-grid {
       display: grid;
-      /* Minimum of 2 entries in a row for smaller screens */
       grid-template-columns: repeat(2, 1fr);
       gap: 1.5rem;
     }
 
-    /* Intermediate screens (tablets) */
     @media (min-width: 600px) {
       .page-grid {
         grid-template-columns: repeat(3, 1fr);
       }
     }
 
-    /* Larger screens (desktop) */
     @media (min-width: 900px) {
       .page-grid {
-        /* Up to 5 entries in a row */
         grid-template-columns: repeat(5, 1fr);
       }
     }
@@ -152,9 +177,9 @@
       padding-top: 0.75rem;
     }
 
-    .no-pages {
+    .no-pages, .no-results {
       grid-column: 1 / -1;
-      padding: 2rem;
+      padding: 2.5rem;
       text-align: center;
       color: var(--text-muted);
       background: var(--bg-alt);
@@ -162,35 +187,118 @@
       border: 1px dashed var(--border);
     }
   </style>
+
   <script>
-    /* home.js — Specific behaviors for the home page */
     (function () {
       "use strict";
 
+      const MIN_CHARS = 3;
+      const BATCH_SIZE = 20;
+
+      // 1. Inject JSON array of ALL pages for instant searching
+      const allPages = [
+        {{range .AllPages}}{
+          url: {{.URL}},
+          title: {{.Title}},
+          img: {{.ImgPath}},
+          overview: {{.OverviewText}},
+          date: {{.ModifiedAt}}
+        },{{end}}
+      ];
+
       document.addEventListener("DOMContentLoaded", function () {
-        var searchInput = document.getElementById("page-search");
-        var cards = document.querySelectorAll(".page-card");
+        const input = document.getElementById("page-search");
+        const latestPostsContainer = document.getElementById("latest-posts");
+        const searchResultsContainer = document.getElementById("search-results-container");
+        const grid = document.getElementById("page-grid");
+        const status = document.getElementById("search-status");
+        const sentinel = document.getElementById("search-sentinel");
+        const noResults = document.getElementById("no-results");
 
-        if (!searchInput) return;
+        if (!input || !grid || !latestPostsContainer) return;
 
-        searchInput.addEventListener("input", function (e) {
-          var query = e.target.value.toLowerCase().trim();
+        let filteredPages = [];
+        let currentIndex = 0;
 
-          cards.forEach(function (card) {
-            var title = card.querySelector("h2").textContent.toLowerCase();
-            var overview = card.querySelector(".overview").textContent.toLowerCase();
+        const renderCard = (p) => {
+          const imgHtml = p.img ? `<div class="card-image"><img src="${p.img}" alt="${p.title}" loading="lazy"></div>` : '';
+          return `
+            <a href="${p.url}" class="page-card">
+              ${imgHtml}
+              <div class="card-content">
+                <h2>${p.title}</h2>
+                <p class="overview">${p.overview}</p>
+                <div class="card-meta">
+                  <span class="date">Updated: ${p.date}</span>
+                </div>
+              </div>
+            </a>`;
+        };
 
-            // Reveal card if query matches title or overview, else hide
-            if (title.includes(query) || overview.includes(query)) {
-              card.style.display = "flex";
-            } else {
-              card.style.display = "none";
-            }
+        const loadNextBatch = () => {
+          const nextBatch = filteredPages.slice(currentIndex, currentIndex + BATCH_SIZE);
+          if (nextBatch.length === 0) return;
+
+          const fragment = document.createDocumentFragment();
+          nextBatch.forEach(p => {
+            const temp = document.createElement('div');
+            temp.innerHTML = renderCard(p);
+            fragment.appendChild(temp.firstElementChild);
           });
+          
+          grid.appendChild(fragment);
+          currentIndex += nextBatch.length;
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+          if (entries[0].isIntersecting && filteredPages.length > currentIndex) {
+            loadNextBatch();
+          }
+        }, { rootMargin: '200px' });
+
+        if (sentinel) observer.observe(sentinel);
+
+        input.addEventListener("input", function (e) {
+          const raw = e.target.value;
+          const query = raw.toLowerCase().trim();
+
+          // 2. Revert to Static View if query is too short
+          if (query.length < MIN_CHARS) {
+            latestPostsContainer.style.display = "block";
+            searchResultsContainer.style.display = "none";
+            grid.innerHTML = '';
+            status.textContent = "";
+            return;
+          }
+
+          // 3. Switch to Dynamic View
+          latestPostsContainer.style.display = "none";
+          searchResultsContainer.style.display = "block";
+
+          filteredPages = allPages.filter(p => 
+            p.title.toLowerCase().includes(query) || 
+            p.overview.toLowerCase().includes(query)
+          );
+
+          currentIndex = 0;
+          grid.innerHTML = '';
+
+          // 4. Handle Results state
+          if (filteredPages.length === 0) {
+            noResults.style.display = "block";
+            sentinel.style.display = "none";
+            status.textContent = "";
+          } else {
+            noResults.style.display = "none";
+            sentinel.style.display = "block";
+            loadNextBatch();
+            status.textContent = `${filteredPages.length} ${filteredPages.length === 1 ? 'result' : 'results'} for '${raw.trim()}'`;
+          }
         });
       });
     })();
   </script>
+
   {{if .Style}}
   <link rel="stylesheet" href="/assets/style/{{.Style}}.css">
   {{end}}
@@ -202,10 +310,6 @@
 <body>
   <div class="navbar">
     {{block "navbar" .}}{{end}}
-  </div>
-
-  <div>
-    {{block "sidebar" .}}{{end}}
   </div>
 
   <main class="content">

@@ -4,32 +4,54 @@
   <p>Explore our latest documentation and updates.</p>
 
   <div class="search-bar">
-    <input type="text" id="page-search" placeholder="Search pages..." autocomplete="off" />
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2"
+         stroke-linecap="round" stroke-linejoin="round"
+         aria-hidden="true">
+      <circle cx="11" cy="11" r="8"/>
+      <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </svg>
+    <input type="text" id="page-search" placeholder="Search across all pages..." autocomplete="off" />
   </div>
 </div>
 
-<div class="page-grid" id="page-grid">
-  {{range .Pages}}
-  <a href="{{.URL}}" class="page-card">
-    {{if .ImgPath}}
-    <div class="card-image">
-      <img src="{{.ImgPath}}" alt="{{.Title}}" loading="lazy">
+<div id="latest-posts">
+  <div class="page-grid">
+    {{range .LatestPages}}
+    <a href="{{.URL}}" class="page-card">
+      {{if .ImgPath}}
+      <div class="card-image">
+        <img src="{{.ImgPath}}" alt="{{.Title}}" loading="lazy">
+      </div>
+      {{end}}
+      <div class="card-content">
+        <h2>{{.Title}}</h2>
+        <p class="overview">{{.OverviewText}}</p>
+        <div class="card-meta">
+          <span class="date">Updated: {{.ModifiedAt}}</span>
+        </div>
+      </div>
+    </a>
+    {{end}}
+
+    {{if not .LatestPages}}
+    <div class="no-pages">
+      <p>No pages available yet.</p>
     </div>
     {{end}}
-    <div class="card-content">
-      <h2>{{.Title}}</h2>
-      <p class="overview">{{.OverviewText}}</p>
-      <div class="card-meta">
-        <span class="date">Updated: {{.ModifiedAt}}</span>
-      </div>
-    </div>
-  </a>
-  {{end}}
-
-  {{if not .Pages}}
-  <div class="no-pages">
-    <p>No pages available yet.</p>
   </div>
-  {{end}}
+</div>
+
+<div id="search-results-container" style="display: none;">
+  <p class="search-status" id="search-status" aria-live="polite"></p>
+  
+  <div class="page-grid" id="page-grid">
+    </div>
+
+  <div class="no-results" id="no-results" style="display:none;">
+    <p>No pages match your search.</p>
+  </div>
+
+  <div id="search-sentinel"></div>
 </div>
 {{end}}

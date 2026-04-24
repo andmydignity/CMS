@@ -113,24 +113,31 @@ func GetPages(numberOf int, db *sql.DB) ([]PageInfo, error) {
 	pages := []PageInfo{}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	res, err := db.QueryContext(ctx, "SELECT * FROM pages")
+
+	// 1. Let SQLite handle the sorting and the counting using ORDER BY and LIMIT
+	query := "SELECT url, title, overview, overviewImg, modifiedAt FROM pages ORDER BY modifiedAt DESC LIMIT ?"
+	res, err := db.QueryContext(ctx, query, numberOf)
 	if err != nil {
-		return nil, nil
+		return nil, err // Return the actual error instead of nil, nil
 	}
-	i := 0
+	defer res.Close() // CRITICAL: This prevents database locks and memory leaks
 
 	for res.Next() {
-		if i >= numberOf {
-			break
-		}
 		var page PageInfo
 		err = res.Scan(&page.URL, &page.Title, &page.OverviewText, &page.ImgPath, &page.ModifiedAt)
 		if err != nil {
-			return nil, nil
+			return nil, err
 		}
+
 		page.ModifiedAt = strings.ReplaceAll(strings.ReplaceAll(page.ModifiedAt, "Z", ""), "T", " ")
 		pages = append(pages, page)
 	}
+
+	// Always check for errors that might have occurred during iteration
+	if err = res.Err(); err != nil {
+		return nil, err
+	}
+
 	return pages, nil
 }
 
