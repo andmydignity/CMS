@@ -5,8 +5,13 @@ import (
 	"sync"
 )
 
+type page struct {
+	Data     []byte
+	Checksum string
+}
+
 var (
-	pageCache  = map[string][]byte{}
+	pageCache  = map[string]page{}
 	mutexCache = sync.RWMutex{}
 	cacheSize  = 100
 	pageList   = []string{}
@@ -16,7 +21,14 @@ func FromCache(path string) []byte {
 	mutexCache.RLock()
 	val := pageCache[path]
 	mutexCache.RUnlock()
-	return val
+	return val.Data
+}
+
+func ChecksumFromCache(path string) string {
+	mutexCache.RLock()
+	val := pageCache[path]
+	mutexCache.RUnlock()
+	return val.Checksum
 }
 
 func deleteFromCache(path string) {
@@ -31,7 +43,11 @@ func AppendToCache(path string) ([]byte, error) {
 		return nil, err
 	}
 	mutexCache.Lock()
-	pageCache[path] = data
+	checksum, err := checksumCalculate(path)
+	if err != nil {
+		return nil, err
+	}
+	pageCache[path] = page{data, checksum}
 	pageList = append(pageList, path)
 	mutexCache.Unlock()
 	purgeCache()

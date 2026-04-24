@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -13,8 +14,14 @@ import (
 )
 
 func (cms *CmsStruct) homeHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	if len(globals.HomePageCahce) != 0 {
-		w.Write(globals.HomePageCahce)
+	if len(globals.HomePageCache) != 0 {
+		eTag := fmt.Sprintf(`"%s"`, globals.HomePageChecksumCache)
+		if r.Header.Get("If-None-Match") == eTag {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+		w.Header().Set("ETag", eTag)
+		w.Write(globals.HomePageCache)
 	} else {
 		home, err := os.ReadFile(filepath.Join(globals.AssetsPath, "homePage", "home.html.br"))
 		if err != nil {
@@ -33,6 +40,14 @@ func (cms *CmsStruct) pageHandler(w http.ResponseWriter, r *http.Request, ps htt
 	}
 	path := filepath.Join(globals.AssetsPath, "pages", name+".html.br")
 	if page := filesync.FromCache(path); page != nil {
+		checksum := filesync.ChecksumFromCache(path)
+		eTag := fmt.Sprintf(`"%s"`, checksum)
+		if r.Header.Get("If-None-Match") == eTag {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+
+		w.Header().Set("ETag", eTag)
 		w.Write(page)
 		return
 	}
@@ -40,10 +55,17 @@ func (cms *CmsStruct) pageHandler(w http.ResponseWriter, r *http.Request, ps htt
 		cms.notFound(w)
 		return
 	}
-	data, err := filesync.AppendToCache(path)
+	_, err := filesync.AppendToCache(path)
 	if err != nil {
 		cms.internalError(w, err)
 		return
 	}
-	w.Write(data)
+	if page := filesync.FromCache(path); page != nil {
+		checksum := filesync.ChecksumFromCache(path)
+		w.Header().Set("ETag", checksum)
+		w.Write(page)
+		return
+	}
+
+	cms.internalError(w, fmt.Errorf("Page should have been added to the cache but it isn't? Error: %v", err))
 }

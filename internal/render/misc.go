@@ -3,8 +3,11 @@ package render
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"html/template"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -29,6 +32,20 @@ type RenderConfig struct {
 	LogoPath        string
 	FaviconPath     string
 	CardsInHomePage int
+}
+
+func checksumCalculate(pathTo string) (string, error) {
+	file, err := os.Open(pathTo)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+	hash := sha256.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return "", err
+	}
+	cheksum := hash.Sum(nil)
+	return hex.EncodeToString(cheksum), nil
 }
 
 func loadFromFile(path string) ([]byte, error) {

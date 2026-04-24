@@ -34,7 +34,7 @@ func TestAppendToCacheAndFromCache(t *testing.T) {
 func TestCacheEviction(t *testing.T) {
 	// Set cacheSize to a small number for testing
 	cacheSize = 2
-	pageCache = map[string][]byte{}
+	pageCache = map[string]page{}
 	pageList = []string{}
 
 	files := []string{}

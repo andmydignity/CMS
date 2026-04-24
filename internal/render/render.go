@@ -151,5 +151,14 @@ func renderHome(conf *DataStruct, card int, db *sql.DB) error {
 		return err
 	}
 	globals.HomePageCache = zipped
-	return saveToFile(zipped, filepath.Join(globals.AssetsPath, "homePage", "home.html.br"))
+	err = saveToFile(zipped, filepath.Join(globals.AssetsPath, "homePage", "home.html.br"))
+	if err != nil {
+		return err
+	}
+	checksum, err := checksumCalculate(filepath.Join(globals.AssetsPath, "homePage", "home.html.br"))
+	if err != nil {
+		return err
+	}
+	globals.HomePageChecksumCache = checksum
+	return nil
 }
