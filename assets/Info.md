@@ -6,9 +6,9 @@ commonTemplates directory: All templates in this directory are used in both home
 
 homePage directory: All templates in this directory are used in home page. Generated home page (home.html.br) is also stored here. A base.tmpl file is required.
 
-media directory: Medias (images, videos,audios etc..) are stored here. Files here are served by a file server accesible in /media
+media directory: Not implemented yet
 
-style directory:
+style directory: Not implemented correctly yet, maybe will get removed in features.
 
 templates: All templates in this directory are used in posts generated from .md files. A base.tmpl file is required. If mainContentInAtomFeed is true, a <main> tag is also required.
 

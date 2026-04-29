@@ -1,6 +1,6 @@
-/databases
+/databases/*
 /mdFiles
-/certs
+/certs/*
 /assets/homePage/home.html
 /assets/pages
 /app

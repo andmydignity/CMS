@@ -10,12 +10,13 @@ cardsInHome: 20
 #Path to cert any cert key. If left empty and no domains are added it will self sign.
 certPath: ""
 keyPath: ""
-#Path to watch for markdown file changes. Can be relative.
+#Path to watch for markdown file changes. Can be a relative path.
 mdPath: "mdFiles"
 
 siteName: "My Site"
 logoPath: ""
 faviconPath: ""
+
 description: "My site best site!"
 #Amount of first chars of the page the show in the home page/Atom feed summary in case a summary isn't provided in the frontmatter.
 overviewCharCount: 200
@@ -29,7 +30,7 @@ mainContentInAtomFeed: true
 
 #LRU size: up to how many posts should Least Recently Used cache hold.
 #Increasing this increases performance especially if you have a lot of posts. But it also increases RAM usage.
-#You can assume increasing by 1 increases the max RAM usage by around 10KB for text-heavy articles or around 4KB for basic posts.
+#You can assume increasing by 1 increases the max RAM usage by around 10KB.
 lruSize: 200
 
 httpsMode: true
