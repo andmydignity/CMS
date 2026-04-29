@@ -281,7 +281,7 @@ func TestProcessSync_Events(t *testing.T) {
 				os.WriteFile(fullPath, []byte("# Test"), 0o644)
 			}
 
-			// 4. Fire events
+			/// 4. Fire events
 			for _, ev := range tc.simulatedEvents {
 				ev.Path = filepath.Join(mdDir, ev.Path)
 				mockWatcher.eventsChan <- ev
@@ -289,7 +289,7 @@ func TestProcessSync_Events(t *testing.T) {
 			}
 
 			// Yield to let the goroutine finish processing
-			time.Sleep(20 * time.Millisecond)
+			time.Sleep(100 * time.Millisecond)
 
 			// 5. Assertions
 			for _, expectedHTML := range tc.expectHTMLFiles {
