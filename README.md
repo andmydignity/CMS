@@ -1,28 +1,50 @@
+
+![Logo](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/th5xamgrr6se0x5ro4g6.png)
+
+
 # Scorial
 
-Currently in very early development. Can tell you it's a CMS tho.
+A simple blazing fast Markdown based CMS designed for people whom just want to publish their work.
 
-## Phase 1 (Done)
+## Acknowledgements
 
-Routing scaffolding: Done  
-Middlewares: Done  
-Folder syncing: Done (took a long time)  
-Template Injection: Done  
-Dynamic routing: Done.  
-Home page: Done.  
-Tests: Done for filesync (will come back later, hopefully... )
+ It's currently in beta, it's subject to major changes. 
 
-## Phase 2
 
-Add obsidian features (AST): Not there  
-Atom feed: Done
+## Features
+- Just a single binary, no dependency management.
+- Generate posts directly from markdown files.
+- Regenerate posts automatically when modified. (FS watcher) 
+- Automatic Atom feed generation.
+- Automatic TLS certs with caddy.
+- Option to pass the main content of the post to the Atom feed.
+- Built-in rate limit middleware (off by default).
+- Support for frontmatter features: date, category, draft, createdAt, modifedAt.
 
-## Phase 3
 
-Intersyncing of server and user mdFiles via Git: Not there  
-Dashboard: Not there.  
-In-Browser .md Editing: I hope i can pull it off...
 
-### Also
 
-Note to self: Has to compiled with CGO for macOS to file syncer work reliably under heavy operations.
+## Optimizations
+- Built with Go.
+- All pages are static.
+- Posts and Atom feed have Etags, reducing the load.
+- All pages and atom feed are compressed with Brotli on build time.
+- A LRU (Least Recently Used) cache for posts for faster loads.
+- Home page and Atom feed cached on RAM.
+
+
+## Roadmap
+
+- A basic Dashboard (maybe)
+- Add core Obsidian features (like wikilinks)
+- A sync script for syncing in between PC and the server.
+- WebFinger
+- Embedded local media handling
+- Docker deployment.
+- Actually good README.
+
+
+## Installation
+
+Just download the latest release, and run the "app". Don't forget to configure the conf.yaml file! You can also change the page templates to your liking.
+    
