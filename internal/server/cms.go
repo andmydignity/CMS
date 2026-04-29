@@ -2,8 +2,6 @@
 package server
 
 import (
-	"github.com/andmydignity/Scorial/internal/globals"
-	"github.com/andmydignity/Scorial/internal/render"
 	"context"
 	"database/sql"
 	"fmt"
@@ -14,6 +12,9 @@ import (
 	"path/filepath"
 	"syscall"
 	"time"
+
+	"github.com/andmydignity/Scorial/internal/globals"
+	"github.com/andmydignity/Scorial/internal/render"
 
 	"github.com/andmydignity/Scorial/internal/filesync"
 
@@ -69,10 +70,7 @@ func (cms *CmsStruct) Start() error {
 	if err != nil {
 		return err
 	}
-	err = render.RenderSpecials(rdr)
-	if err != nil {
-		return err
-	}
+
 	go filesync.Sync(ctx, cms.Logger, rdr)
 	go func() {
 		quit := make(chan os.Signal, 1)

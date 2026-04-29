@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/andmydignity/Scorial/internal/globals"
 	"github.com/andmydignity/Scorial/internal/render"
@@ -71,7 +72,7 @@ func FirstSync(rndrConf *render.RenderConfig) error {
 	if err != nil {
 		return err
 	}
-	return nil
+	return render.RenderSpecials(rndrConf)
 }
 
 func Sync(ctx context.Context, logger *slog.Logger, rndrConf *render.RenderConfig) error {
@@ -118,47 +119,53 @@ func processSync(ctx context.Context, watcher fswatcher.Watcher, logger *slog.Lo
 		// Handle deletions and original globals of renames
 		if slices.Contains(types, fswatcher.EventRemove) ||
 			(slices.Contains(types, fswatcher.EventRename) && !(slices.Contains(types, fswatcher.EventCreate) || slices.Contains(types, fswatcher.EventMod))) {
+			// Time for some editors to actually create the file. (looking at you, vim)
+			time.Sleep(50 * time.Millisecond)
+			if _, err := os.Stat(path); err == nil {
+				// It still exists, let the create/mod block handle the update
+				types = append(types, fswatcher.EventMod)
+			} else {
+				if _, found := strings.CutSuffix(path, ".md"); !found {
+					if !slices.Contains(dirs, path) {
+						continue
+					}
+					watcher.DropPath(path)
+					dirs = slices.DeleteFunc(dirs, func(s string) bool {
+						return s == path
+					})
 
-			if _, found := strings.CutSuffix(path, ".md"); !found {
-				if !slices.Contains(dirs, path) {
+					targetDir := filepath.Join(globals.AssetsPath, "posts", prefixCut)
+					if err := os.RemoveAll(targetDir); err != nil {
+						logger.Error("Error while deleting directory recursively.", "error", err.Error())
+					}
 					continue
 				}
-				watcher.DropPath(path)
-				dirs = slices.DeleteFunc(dirs, func(s string) bool {
-					return s == path
-				})
-
-				targetDir := filepath.Join(globals.AssetsPath, "posts", prefixCut)
-				if err := os.RemoveAll(targetDir); err != nil {
-					logger.Error("Error while deleting directory recursively.", "error", err.Error())
+				err = deleteChecksum(db, path)
+				if err != nil {
+					logger.Error("Error while deleting .md file from checksums table.", "error", err.Error())
 				}
-				continue
-			}
-			err = deleteChecksum(db, path)
-			if err != nil {
-				logger.Error("Error while deleting .md file from checksums table.", "error", err.Error())
-			}
-			suffixCut, _ := strings.CutSuffix(path, ".md")
-			extensionSanitized, _ := strings.CutPrefix(suffixCut, absMdDir)
-			err = deleteHTML(filepath.Join(globals.AssetsPath, "posts", extensionSanitized+".html.br"))
-			if err != nil {
-				logger.Error("Couldn't delete HTML file!", "error", err.Error())
-			}
+				suffixCut, _ := strings.CutSuffix(path, ".md")
+				extensionSanitized, _ := strings.CutPrefix(suffixCut, absMdDir)
+				err = deleteHTML(filepath.Join(globals.AssetsPath, "posts", extensionSanitized+".html.br"))
+				if err != nil {
+					logger.Error("Couldn't delete HTML file!", "error", err.Error())
+				}
 
-			deleteFromCache(filepath.Join(globals.AssetsPath, "posts", extensionSanitized+".html.br"))
-			// Use prefixCut for EventRemove and extensionSanitized for EventRename as per your original logic
-			deleteTerm := prefixCut
-			//if slices.Contains(types, fswatcher.EventRename) {
-			//	deleteTerm = extensionSanitized
-			//}
+				deleteFromCache(filepath.Join(globals.AssetsPath, "posts", extensionSanitized+".html.br"))
+				// Use prefixCut for EventRemove and extensionSanitized for EventRename as per your original logic
+				deleteTerm := prefixCut
+				//if slices.Contains(types, fswatcher.EventRename) {
+				//	deleteTerm = extensionSanitized
+				//}
 
-			if err = deleteFromPosts(deleteTerm, db); err != nil {
-				logger.Error("Couldn't delete orphaned page from 'posts' table!", "error", err.Error())
-			}
-			needsSpecialRender = true
+				if err = deleteFromPosts(deleteTerm, db); err != nil {
+					logger.Error("Couldn't delete orphaned page from 'posts' table!", "error", err.Error())
+				}
+				needsSpecialRender = true
 
-			if err != nil {
-				logger.Error("Couldn't render home after markdown deletion.", "error", err.Error())
+				if err != nil {
+					logger.Error("Couldn't render home after markdown deletion.", "error", err.Error())
+				}
 			}
 		}
 
