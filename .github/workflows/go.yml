@@ -64,8 +64,9 @@ jobs:
           # Move the compiled binary
           mv ${{ matrix.binary_name }} package/
 
-          # Copy the assets directory from the repo
+          # Copy the assets directory and config from the repo
           cp -r assets package/
+          cp config.yaml package/
 
           # Create fresh, empty directories for runtime data
           mkdir package/databases
@@ -102,9 +103,11 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
+          name: Scorial Latest Release
+          body: "Automated rolling release containing the latest compiled binaries and default directory structures."
           files: ./dist/*.zip
           prerelease: false
           make_latest: true
-          generate_release_notes: true
+          generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
