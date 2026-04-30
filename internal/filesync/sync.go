@@ -153,8 +153,11 @@ func processSync(ctx context.Context, watcher fswatcher.Watcher, logger *slog.Lo
 				}
 
 				deleteFromCache(filepath.Join(globals.AssetsPath, "posts", extensionSanitized+".html.br"))
-				// Use prefixCut for EventRemove and extensionSanitized for EventRename as per your original logic
+				// Standardize slashes for Windows so it macthes the DB
 				deleteTerm := prefixCut
+				if runtime.GOOS == "windows" {
+					deleteTerm = strings.ReplaceAll(deleteTerm, "\\", "/")
+				}
 				//if slices.Contains(types, fswatcher.EventRename) {
 				//	deleteTerm = extensionSanitized
 				//}

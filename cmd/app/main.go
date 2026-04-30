@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/andmydignity/Scorial/internal/globals"
@@ -61,27 +62,35 @@ func OpenDB(dbName string) (*sql.DB, error) {
 	return db, err
 }
 
+func exit(code int) {
+	if runtime.GOOS == "windows" {
+		fmt.Println("Press Enter to exit.")
+		fmt.Scanln()
+	}
+	os.Exit(code)
+}
+
 func main() {
 	globals.SetPaths()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	file, err := os.Open(filepath.Join(globals.BinaryPath, "config.yaml"))
 	if err != nil {
 		logger.Error("Couldn't access config.yaml file!", "error", err.Error())
-		os.Exit(2)
+		exit(2)
 	}
 	var cfg config
 	decoder := yaml.NewDecoder(file)
 	if err = decoder.Decode(&cfg); err != nil {
 		logger.Error("Error while parsing YAML config!", "error", err.Error())
-		os.Exit(3)
+		exit(3)
 	}
 	if cfg.LRUSize <= 0 {
 		logger.Error("Max LRU Cache size has to be more than 0.")
-		os.Exit(4)
+		exit(4)
 	}
 	if cfg.CardsInHome <= 0 {
 		logger.Error("Cards in home must be over 0.")
-		os.Exit(4)
+		exit(4)
 	}
 	if cfg.OverviewCharCount < 0 {
 		logger.Error("OverviewCharCount cannot be smaller than 0.")
@@ -89,7 +98,7 @@ func main() {
 	db, err := OpenDB("database.db")
 	if err != nil {
 		logger.Error("Couldn't open DB! Error:" + err.Error())
-		os.Exit(3)
+		exit(3)
 	}
 	var siteUrl string
 	if cfg.Domains == nil {
@@ -106,7 +115,7 @@ func main() {
 	err = cms.Start()
 	if !errors.Is(err, http.ErrServerClosed) && err != nil {
 		cms.Logger.Error("Error while closing the server.", "error", err.Error())
-		os.Exit(1)
+		exit(1)
 	}
-	os.Exit(0)
+	exit(0)
 }
