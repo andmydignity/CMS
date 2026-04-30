@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -45,8 +46,22 @@ type RenderConfig struct {
 
 func checksumCalculate(pathTo string) (string, error) {
 	file, err := os.Open(pathTo)
+	// Windows and its file locks, man...
 	if err != nil {
-		return "", err
+		if runtime.GOOS == "windows" {
+			for i := 0; i < 5; i++ {
+				time.Sleep(50 * time.Millisecond)
+				file, err = os.Open(pathTo)
+				if err == nil {
+					break
+				}
+			}
+			if err != nil {
+				return "", err
+			}
+		} else {
+			return "", err
+		}
 	}
 	defer file.Close()
 	hash := sha256.New()

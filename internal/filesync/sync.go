@@ -93,6 +93,7 @@ func processSync(ctx context.Context, watcher fswatcher.Watcher, logger *slog.Lo
 	if err != nil {
 		return err
 	}
+	go watcher.Watch(ctx)
 	err = filepath.WalkDir(mdDir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -113,7 +114,6 @@ func processSync(ctx context.Context, watcher fswatcher.Watcher, logger *slog.Lo
 	if err != nil {
 		return err
 	}
-	go watcher.Watch(ctx)
 	var needsSpecialRender bool
 	for event := range watcher.Events() {
 		types := event.Types
