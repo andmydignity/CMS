@@ -128,7 +128,7 @@ func processSync(ctx context.Context, watcher fswatcher.Watcher, logger *slog.Lo
 			} else {
 				if _, found := strings.CutSuffix(path, ".md"); !found {
 					if !slices.Contains(dirs, path) {
-						continue
+						goto EvaluateSpecials
 					}
 					watcher.DropPath(path)
 					dirs = slices.DeleteFunc(dirs, func(s string) bool {
@@ -139,7 +139,7 @@ func processSync(ctx context.Context, watcher fswatcher.Watcher, logger *slog.Lo
 					if err := os.RemoveAll(targetDir); err != nil {
 						logger.Error("Error while deleting directory recursively.", "error", err.Error())
 					}
-					continue
+					goto EvaluateSpecials
 				}
 				err = deleteChecksum(db, path)
 				if err != nil {
@@ -184,7 +184,7 @@ func processSync(ctx context.Context, watcher fswatcher.Watcher, logger *slog.Lo
 				if !os.IsNotExist(err) {
 					logger.Error("Couldn't get os.Stat!", "error", err.Error())
 				}
-				continue
+				goto EvaluateSpecials
 			}
 			if _, found := strings.CutSuffix(path, ".md"); !found {
 				if st.IsDir() {
@@ -216,14 +216,14 @@ func processSync(ctx context.Context, watcher fswatcher.Watcher, logger *slog.Lo
 						})
 					}
 				}
-				continue
+				goto EvaluateSpecials
 			}
 
 			if st.IsDir() {
 				if !slices.Contains(dirs, path) {
 					dirs = append(dirs, path)
 				}
-				continue
+				goto EvaluateSpecials
 			}
 
 			checksum, err := checksumCalculate(path)
@@ -235,7 +235,7 @@ func processSync(ctx context.Context, watcher fswatcher.Watcher, logger *slog.Lo
 				logger.Error("Couldn't compare checksums!", "error", err.Error())
 			}
 			if same {
-				continue
+				goto EvaluateSpecials
 			}
 
 			err = appendChecksum(db, path, checksum)
@@ -251,6 +251,8 @@ func processSync(ctx context.Context, watcher fswatcher.Watcher, logger *slog.Lo
 			}
 			needsSpecialRender = true
 		}
+		// Had to use goto, please do forgive me and my family.
+	EvaluateSpecials:
 		if needsSpecialRender && len(watcher.Events()) == 0 {
 			// Windows being Windows, doesn't reflect the file changes immediately. Fuck Windows.
 			if runtime.GOOS == "windows" {
